@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { useParams } from 'react-router-dom'
 
+import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
 import { MembersTab } from '@/components/team/MembersTab'
 import { TeamsTab } from '@/components/team/TeamsTab'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -17,6 +18,7 @@ export function TeamPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-5">
+        <MobileMenuButton />
         <h1 className="text-[15px] font-semibold tracking-tight">Equipo</h1>
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'members' | 'teams')}>
           <TabsList>

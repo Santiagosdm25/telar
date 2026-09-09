@@ -5,6 +5,7 @@ import { Outlet, useNavigate, useParams } from 'react-router-dom'
 
 import { EmptyState } from '@/components/EmptyState'
 import { ConversationListItem } from '@/components/inbox/ConversationListItem'
+import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
 import { StatusDot, statusChipClass } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
@@ -143,11 +144,17 @@ export function InboxLayout() {
   return (
     <div className="flex min-h-0 flex-1">
       <section
-        className="flex w-[336px] shrink-0 flex-col border-r border-border bg-surface"
+        className={cn(
+          'flex w-full shrink-0 flex-col border-r border-border bg-surface lg:w-[336px]',
+          // En mobile la lista y el hilo ocupan la pantalla entera por
+          // turnos -- con un hilo abierto, la lista se oculta del todo.
+          conversationId && 'hidden lg:flex',
+        )}
         aria-label="Lista de conversaciones"
       >
         {/* Encabezado */}
         <div className="flex h-14 items-center gap-2 px-4">
+          <MobileMenuButton />
           <h1 className="text-[15px] font-semibold tracking-tight">Conversaciones</h1>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -334,7 +341,12 @@ export function InboxLayout() {
         </div>
       </section>
 
-      <Outlet />
+      {/* En mobile, el hilo (o el estado "elegí una conversación") solo se
+          muestra una vez que hay una conversación elegida -- si no, la
+          lista de arriba ya ocupa toda la pantalla. */}
+      <div className={cn('flex min-w-0 flex-1', !conversationId && 'hidden lg:flex')}>
+        <Outlet />
+      </div>
     </div>
   )
 }

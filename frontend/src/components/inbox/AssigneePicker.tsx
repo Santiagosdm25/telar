@@ -39,9 +39,9 @@ export function AssigneePicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" disabled={disabled}>
+        <Button variant="outline" size="sm" disabled={disabled} aria-label="Asignar">
           <UserCog />
-          Asignar
+          <span className="hidden sm:inline">Asignar</span>
           <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>

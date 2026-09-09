@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { EmptyState } from '@/components/EmptyState'
+import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
 import { ContactAvatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -60,6 +61,7 @@ export function ContactsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
+        <MobileMenuButton />
         <h1 className="text-[15px] font-semibold tracking-tight">Contactos</h1>
         {contacts && (
           <span className="tabular rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground">

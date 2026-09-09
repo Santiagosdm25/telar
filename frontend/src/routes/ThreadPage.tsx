@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  ArrowLeft,
   CheckCheck,
   ChevronUp,
   Clock,
@@ -12,7 +13,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import * as React from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { EmptyState } from '@/components/EmptyState'
@@ -51,6 +52,7 @@ export function ThreadPage() {
     conversationId: string
   }>()
   const { user, roleForAccount } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [busy, setBusy] = React.useState(false)
   const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false)
@@ -198,6 +200,17 @@ export function ThreadPage() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col bg-background">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
+          {/* En mobile la lista y el hilo se turnan la pantalla entera (ver
+              InboxLayout) -- esto es lo que devuelve a la lista. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-ml-1 shrink-0 lg:hidden"
+            aria-label="Volver a la lista"
+            onClick={() => navigate(`/accounts/${accountId}/conversations`)}
+          >
+            <ArrowLeft />
+          </Button>
           <ContactAvatar seed={conv.contact_id} name={conv.contact_name} size="md" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm leading-tight font-semibold">{contactName}</p>
@@ -227,11 +240,11 @@ export function ThreadPage() {
             <Info />
           </Button>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {conv.status !== 'open' && (
-              <Button size="sm" disabled={busy} onClick={() => assign()}>
+              <Button size="sm" disabled={busy} onClick={() => assign()} aria-label="Tomar">
                 <Hand />
-                Tomar
+                <span className="hidden sm:inline">Tomar</span>
               </Button>
             )}
 
@@ -250,6 +263,7 @@ export function ThreadPage() {
                   size="sm"
                   variant="ghost"
                   disabled={busy}
+                  aria-label="Devolver a la cola"
                   onClick={() =>
                     runAction(
                       'No se pudo devolver a la cola',
@@ -259,12 +273,13 @@ export function ThreadPage() {
                   }
                 >
                   <Undo2 />
-                  Devolver
+                  <span className="hidden sm:inline">Devolver</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={busy}
+                  aria-label="Resolver"
                   onClick={() =>
                     runAction(
                       'No se pudo resolver',
@@ -274,7 +289,7 @@ export function ThreadPage() {
                   }
                 >
                   <CheckCheck />
-                  Resolver
+                  <span className="hidden sm:inline">Resolver</span>
                 </Button>
               </>
             )}

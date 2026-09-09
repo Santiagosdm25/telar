@@ -4,6 +4,7 @@ import { Logo } from '@/components/Logo'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { useAuth } from '@/lib/auth'
+import { MobileNavProvider, useMobileNav } from '@/lib/mobileNav'
 import { useNewMessageTitleAlert } from '@/lib/useNewMessageTitleAlert'
 
 export function AccountLayout() {
@@ -20,10 +21,20 @@ export function AccountLayout() {
   if (!accountId) return <Navigate to="/" replace />
 
   return (
+    <MobileNavProvider>
+      <AccountLayoutBody accountId={accountId} role={roleForAccount(accountId)} />
+    </MobileNavProvider>
+  )
+}
+
+function AccountLayoutBody({ accountId, role }: { accountId: string; role: string | null }) {
+  const { open, setOpen } = useMobileNav()
+
+  return (
     <div className="flex h-svh flex-col overflow-hidden bg-background">
       <OfflineBanner />
       <div className="flex min-h-0 flex-1">
-        <Sidebar accountId={accountId} role={roleForAccount(accountId)} />
+        <Sidebar accountId={accountId} role={role} mobileOpen={open} onMobileOpenChange={setOpen} />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Outlet />
         </main>

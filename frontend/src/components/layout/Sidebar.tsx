@@ -45,13 +45,28 @@ interface NavItem {
   badge?: number
 }
 
-export function Sidebar({ accountId, role }: { accountId: string; role: string | null }) {
+interface SidebarProps {
+  accountId: string
+  role: string | null
+  /** Drawer en mobile: por debajo de `lg` el sidebar arranca oculto. */
+  mobileOpen: boolean
+  onMobileOpenChange: (open: boolean) => void
+}
+
+export function Sidebar({ accountId, role, mobileOpen, onMobileOpenChange }: SidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = React.useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   )
   const [creatingAccount, setCreatingAccount] = React.useState(false)
+
+  // Navegar (cambiar de sección, de cuenta, cerrar sesión) cierra el
+  // drawer en mobile -- en desktop `mobileOpen` no se usa para nada, así
+  // que esto no tiene efecto ahí.
+  function closeMobile() {
+    onMobileOpenChange(false)
+  }
 
   const { data: accounts } = useQuery({ queryKey: queryKeys.accounts(), queryFn: getAccounts })
   const { data: stats } = useQuery({
@@ -89,15 +104,28 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
   function handleLogout() {
     logout()
     navigate('/login')
+    closeMobile()
   }
 
   return (
-    <aside
-      className={cn(
-        'flex shrink-0 flex-col gap-1 border-r border-border bg-surface transition-[width] duration-200',
-        collapsed ? 'w-[60px] px-2' : 'w-[232px] px-3',
+    <>
+      {/* Backdrop del drawer -- lg:hidden porque en desktop nunca hay
+          overlay, el sidebar ya está siempre en flujo normal. */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] lg:hidden"
+          onClick={closeMobile}
+          aria-hidden
+        />
       )}
-    >
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col gap-1 border-r border-border bg-surface px-3 transition-transform duration-200',
+          'lg:static lg:inset-y-auto lg:z-auto lg:translate-x-0 lg:transition-[width]',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          collapsed ? 'lg:w-[60px] lg:px-2' : 'lg:w-[232px] lg:px-3',
+        )}
+      >
       {/* Marca */}
       <div className={cn('flex h-14 items-center', collapsed ? 'justify-center' : 'gap-2 px-1')}>
         {collapsed ? (
@@ -159,7 +187,10 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
             {accounts?.map((account) => (
               <DropdownMenuItem
                 key={account.id}
-                onSelect={() => navigate(`/accounts/${account.id}/conversations`)}
+                onSelect={() => {
+                  navigate(`/accounts/${account.id}/conversations`)
+                  closeMobile()
+                }}
               >
                 <span className="flex-1 truncate">{account.name}</span>
                 {account.id === accountId && <Check className="size-4 text-primary" />}
@@ -168,7 +199,12 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
             {user?.is_superadmin && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => setCreatingAccount(true)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setCreatingAccount(true)
+                    closeMobile()
+                  }}
+                >
                   <Plus />
                   Crear cuenta
                 </DropdownMenuItem>
@@ -181,7 +217,7 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
       {/* Navegación */}
       <nav className={cn('mt-3 flex flex-col', collapsed ? 'gap-1.5' : 'gap-0.5')} aria-label="Secciones">
         {items.map((item) => (
-          <NavItemLink key={item.to} item={item} collapsed={collapsed} />
+          <NavItemLink key={item.to} item={item} collapsed={collapsed} onNavigate={closeMobile} />
         ))}
       </nav>
 
@@ -220,7 +256,12 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
               <span className="block truncate text-xs text-muted-foreground">{user?.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => navigate('/accounts')}>
+            <DropdownMenuItem
+              onSelect={() => {
+                navigate('/accounts')
+                closeMobile()
+              }}
+            >
               <ChevronsUpDown />
               Cambiar de cuenta
             </DropdownMenuItem>
@@ -233,16 +274,26 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
       </div>
 
       <NewAccountDialog open={creatingAccount} onOpenChange={setCreatingAccount} />
-    </aside>
+      </aside>
+    </>
   )
 }
 
-function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+function NavItemLink({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem
+  collapsed: boolean
+  onNavigate: () => void
+}) {
   const { icon: Icon, label, to, badge } = item
 
   const link = (
     <NavLink
       to={to}
+      onClick={onNavigate}
       className={({ isActive }) =>
         cn(
           'relative flex items-center rounded-lg text-[13px] font-medium transition-colors duration-150',

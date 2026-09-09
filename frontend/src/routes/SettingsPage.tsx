@@ -3,6 +3,7 @@ import * as React from 'react'
 import { useParams } from 'react-router-dom'
 
 import { EmptyState } from '@/components/EmptyState'
+import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
 import { DatabaseTab } from '@/components/settings/DatabaseTab'
 import { InboxesTab } from '@/components/settings/InboxesTab'
 import { KnowledgeBasesTab } from '@/components/settings/KnowledgeBasesTab'
@@ -37,6 +38,7 @@ export function SettingsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-5">
+        <MobileMenuButton />
         <h1 className="text-[15px] font-semibold tracking-tight">Configuración</h1>
         <Tabs value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
           <TabsList>
