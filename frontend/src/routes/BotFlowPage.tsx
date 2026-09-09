@@ -229,7 +229,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Barra de la pantalla: fuera del lienzo, no flotando encima */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
-        <h1 className="text-[15px] font-semibold tracking-tight">Hilos conversacionales</h1>
+        <h1 className="text-[15px] font-semibold tracking-tight">Flujo del bot</h1>
         <span className="tabular rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground">
           {agentCount} {agentCount === 1 ? 'nodo' : 'nodos'}
         </span>

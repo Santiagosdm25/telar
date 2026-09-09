@@ -80,7 +80,7 @@ export function Sidebar({ accountId, role }: { accountId: string; role: string |
     { to: `/accounts/${accountId}/team`, label: 'Equipo', icon: UsersRound },
     ...(isAdmin(role)
       ? [
-          { to: `/accounts/${accountId}/bot`, label: 'Hilos conversacionales', icon: Workflow },
+          { to: `/accounts/${accountId}/bot`, label: 'Flujo del bot', icon: Workflow },
           { to: `/accounts/${accountId}/settings`, label: 'Configuración', icon: Settings },
         ]
       : []),
