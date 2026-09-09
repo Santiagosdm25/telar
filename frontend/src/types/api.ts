@@ -64,12 +64,25 @@ export interface ConversationStatusResponse {
   assignee_id: string | null
 }
 
+export interface MessageMedia {
+  external_id: string | null
+  mime_type: string | null
+  filename: string | null
+  sha256: string | null
+  size_bytes: number | null
+  storage_url: string | null
+  caption: string | null
+}
+
 export interface MessageResponse {
   id: string
   sender_type: 'contact' | 'bot' | 'agent' | 'system'
   sender_id: string | null
   type: string
   content: string | null
+  /** Solo en mensajes de imagen/audio/video/documento. El archivo en sí
+   *  todavía no se descarga de Meta -- ver storage_url, hoy siempre null. */
+  media: MessageMedia | null
   /** 'pending' | 'sent' | 'delivered' | 'read' | 'failed' -- suelto porque el
    *  backend todavía puede sumar valores (webhooks de estado de Meta). */
   delivery_status: string

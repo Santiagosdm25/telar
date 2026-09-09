@@ -1,8 +1,52 @@
-import { AlertTriangle, Bot, Check, CheckCheck, Clock, Info } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bot,
+  Check,
+  CheckCheck,
+  Clock,
+  FileText,
+  Image as ImageIcon,
+  Info,
+  Music,
+  Video,
+} from 'lucide-react'
 
 import { clockTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { MessageResponse } from '@/types/api'
+import type { MessageMedia, MessageResponse } from '@/types/api'
+
+/**
+ * El backend todavía no descarga el archivo de Meta (ver
+ * channels/meta.py:download_media, nunca se llama) -- `storage_url` va a
+ * ser null siempre por ahora. Mientras tanto, mostrar tipo + nombre de
+ * archivo es mejor que el placeholder genérico "[image recibido]".
+ */
+const MEDIA_LABEL: Record<string, string> = {
+  image: 'Imagen',
+  audio: 'Audio',
+  video: 'Video',
+  document: 'Documento',
+  sticker: 'Sticker',
+}
+
+function MediaChip({ media, type }: { media: MessageMedia; type: string }) {
+  const mime = media.mime_type
+  const Icon = mime?.startsWith('image/')
+    ? ImageIcon
+    : mime?.startsWith('audio/')
+      ? Music
+      : mime?.startsWith('video/')
+        ? Video
+        : FileText
+  const label = media.filename ?? MEDIA_LABEL[type] ?? 'Archivo adjunto'
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-black/[0.06] px-2.5 py-2 dark:bg-white/[0.06]">
+      <Icon className="size-4 shrink-0 opacity-70" />
+      <span className="min-w-0 truncate text-[13px] font-medium">{label}</span>
+    </div>
+  )
+}
 
 export interface BubbleProps {
   message: MessageResponse
@@ -69,8 +113,19 @@ export function MessageBubble({ message, grouped = false }: BubbleProps) {
             grouped && (fromContact ? 'rounded-bl-2xl' : 'rounded-br-2xl'),
           )}
         >
-          {message.content ?? (
-            <span className="text-muted-foreground italic">[{message.type}]</span>
+          {message.media ? (
+            <div className="flex flex-col gap-1.5">
+              <MediaChip media={message.media} type={message.type} />
+              {/* Si no hay caption real, content es el placeholder genérico
+                  que arma as_agent_text() en el backend -- no se repite. */}
+              {message.content && !/^\[\w+ recibido\]$/.test(message.content) && (
+                <p>{message.content}</p>
+              )}
+            </div>
+          ) : (
+            (message.content ?? (
+              <span className="text-muted-foreground italic">[{message.type}]</span>
+            ))
           )}
         </div>
         <div

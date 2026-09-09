@@ -23,6 +23,7 @@ from telar.core import state as st
 from telar.core.types import (
     ContactRef,
     ConversationStatus,
+    MediaRef,
     MessageType,
     OutboundMessage,
     SenderType,
@@ -59,6 +60,7 @@ class MessageResponse(BaseModel):
     sender_id: UUID | None
     type: str
     content: str | None
+    media: MediaRef | None = None
     delivery_status: str
     created_at: datetime
 

@@ -416,7 +416,7 @@ async def get_messages_for_conversation(
     async with pool.connection() as conn:
         cur = await conn.execute(
             """
-            SELECT id, sender_type, sender_id, type, content, delivery_status, created_at
+            SELECT id, sender_type, sender_id, type, content, media, delivery_status, created_at
               FROM messages
              WHERE conversation_id = %(conversation_id)s
                AND (%(before)s::timestamptz IS NULL OR created_at < %(before)s::timestamptz)
