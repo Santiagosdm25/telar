@@ -22,6 +22,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://telar:telar@db:5432/telar
+      MEDIA_STORAGE_DIR: /app/data/media
+    volumes:
+      - telar_media:/app/data/media
     depends_on:
       db:
         condition: service_healthy
@@ -42,3 +45,4 @@ services:
 
 volumes:
   telar_db:
+  telar_media:

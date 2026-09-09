@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 
 from telar.auth.dependencies import Membership, require_role
@@ -30,6 +30,7 @@ from telar.core.types import (
     TemplateRef,
 )
 from telar.db import repositories as repo
+from telar.media import storage as media_storage
 
 router = APIRouter(prefix="/accounts/{account_id}", tags=["conversations"])
 adapter = default_adapter()
@@ -409,6 +410,43 @@ async def send_template_message(
         content=display_text,
         delivery_status="sent" if result.channel_message_id else "failed",
         created_at=datetime.now(timezone.utc),
+    )
+
+
+@router.get("/conversations/{conversation_id}/messages/{message_id}/media")
+async def get_message_media(
+    account_id: UUID,
+    conversation_id: UUID,
+    message_id: UUID,
+    membership: Membership = Depends(require_role()),
+) -> Response:
+    """
+    Sirve el archivo ya descargado de Meta (ver worker/pipeline.py y
+    media/storage.py). No es público: exige pertenecer a la cuenta, igual
+    que leer el resto del hilo. Las URLs firmadas de Meta expiran en
+    minutos, por eso el archivo pasa por acá y no se linkea directo.
+    """
+    await _get_conversation_or_404(account_id, conversation_id)
+
+    msg = await repo.get_message(message_id)
+    if msg is None or msg["conversation_id"] != conversation_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Mensaje no encontrado")
+
+    media = msg["media"]
+    external_id = media.get("external_id") if media else None
+    if not external_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Este mensaje no tiene un archivo adjunto")
+
+    content = await media_storage.read(external_id)
+    if content is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "El archivo no está disponible (no se pudo descargar en su momento o es de antes de esta función)",
+        )
+
+    return Response(
+        content=content,
+        media_type=media.get("mime_type") or "application/octet-stream",
     )
 
 

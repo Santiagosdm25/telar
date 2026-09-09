@@ -10,7 +10,9 @@ COPY telar ./telar
 # ollama: proveedor LLM local, opcional pero liviano de sumar acá.
 RUN pip install --no-cache-dir ".[openai,ollama]"
 
-RUN useradd --create-home --uid 1000 telar
+RUN useradd --create-home --uid 1000 telar \
+    && mkdir -p /app/data/media \
+    && chown -R telar:telar /app/data
 USER telar
 
 EXPOSE 8000

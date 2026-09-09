@@ -10,33 +10,40 @@ from uuid import UUID
 from psycopg.rows import dict_row
 
 from telar.core.state import Conversation
-from telar.core.types import ContactRef, ConversationStatus, InboundMessage, OutboundMessage, SenderType
+from telar.core.types import (
+    ContactRef,
+    ConversationStatus,
+    InboundMessage,
+    OutboundMessage,
+    SenderType,
+)
 from telar.db.pool import get_pool
 
 __all__ = [
     "already_processed",
-    "insert_buffered_message",
-    "get_buffered_messages",
     "delete_buffered_messages",
-    "list_buffered_keys",
-    "upsert_contact",
+    "delete_message_template",
+    "get_buffered_messages",
+    "get_contact",
+    "get_contacts_for_account",
+    "get_conversation",
+    "get_conversation_stats",
+    "get_conversations_for_account",
+    "get_message",
+    "get_message_template",
+    "get_message_templates_for_account",
+    "get_messages_for_conversation",
     "get_or_create_conversation",
+    "insert_buffered_message",
+    "insert_message_template",
+    "list_buffered_keys",
     "save_conversation",
     "save_conversation_if_unchanged",
     "save_inbound",
     "save_inbound_rate_limited",
-    "update_message_delivery_status",
     "save_outbound",
-    "get_conversation",
-    "get_conversations_for_account",
-    "get_messages_for_conversation",
-    "get_contacts_for_account",
-    "get_contact",
-    "get_conversation_stats",
-    "insert_message_template",
-    "get_message_templates_for_account",
-    "get_message_template",
-    "delete_message_template",
+    "update_message_delivery_status",
+    "upsert_contact",
 ]
 
 
@@ -428,6 +435,18 @@ async def get_messages_for_conversation(
         cur.row_factory = dict_row
         rows = await cur.fetchall()
     return list(reversed(rows))
+
+
+async def get_message(message_id: UUID) -> dict | None:
+    pool = await get_pool()
+    async with pool.connection() as conn:
+        cur = await conn.execute(
+            "SELECT id, account_id, conversation_id, media FROM messages WHERE id = %s",
+            (message_id,),
+        )
+        cur.row_factory = dict_row
+        rows = await cur.fetchall()
+    return rows[0] if rows else None
 
 
 async def get_contacts_for_account(

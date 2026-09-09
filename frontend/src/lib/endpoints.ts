@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api'
+import { apiFetch, apiFetchBlob } from '@/lib/api'
 import type {
   AccountResponse,
   AvailableToolResponse,
@@ -173,6 +173,12 @@ export function sendMessage(accountId: string, conversationId: string, text: str
   return apiFetch<MessageResponse>(
     `/accounts/${accountId}/conversations/${conversationId}/messages`,
     { method: 'POST', body: JSON.stringify({ text }) },
+  )
+}
+
+export function fetchMessageMedia(accountId: string, conversationId: string, messageId: string) {
+  return apiFetchBlob(
+    `/accounts/${accountId}/conversations/${conversationId}/messages/${messageId}/media`,
   )
 }
 

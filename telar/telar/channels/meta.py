@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -30,6 +30,7 @@ from telar.core.types import (
     SendResult,
 )
 from telar.db import repositories as repo
+from telar.media import storage as media_storage
 
 log = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
             "account_id": account_id,
             "inbox_id": inbox_id,
             "contact": contact,
-            "sent_at": datetime.fromtimestamp(int(raw["timestamp"]), tz=timezone.utc),
+            "sent_at": datetime.fromtimestamp(int(raw["timestamp"]), tz=UTC),
             "reply_to_channel_message_id": raw.get("context", {}).get("id"),
             "raw": raw,
         }
@@ -323,22 +324,42 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         except httpx.HTTPError as e:
             log.warning("no se pudo marcar como leído %s: %s", channel_message_id, e)
 
-    async def download_media(self, media: MediaRef) -> MediaRef:
+    async def download_media(self, media: MediaRef, *, access_token: str | None = None) -> MediaRef:
         """
         La URL que devuelve Meta expira en minutos. Descarga apenas llegue
         el mensaje, no cuando el agente lo necesite.
+
+        Si algo falla acá (Meta caída, media ya vencida, archivo gigante),
+        se propaga: quien llama decide si vale la pena perder el mensaje
+        completo por eso o solo quedarse sin el archivo (ver pipeline.py).
         """
-        headers = {"Authorization": f"Bearer {self.access_token}"}
+        if not media.external_id:
+            return media
+
+        token = access_token or self.access_token
+        headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=30) as client:
             meta = await client.get(f"{self.base}/{media.external_id}", headers=headers)
             meta.raise_for_status()
             info = meta.json()
+
+            size = int(info.get("file_size", 0))
+            if size and size > settings().media_max_bytes:
+                log.warning("media %s excede el tamaño máximo (%s bytes), no se descarga",
+                            media.external_id, size)
+                return media
+
             binary = await client.get(info["url"], headers=headers)
             binary.raise_for_status()
 
         media.mime_type = info.get("mime_type", media.mime_type)
         media.size_bytes = len(binary.content)
-        # v0: sin almacenamiento externo todavía. Aquí va S3/MinIO después.
+        await media_storage.save(media.external_id, binary.content)
+        # No es una URL servible tal cual (el endpoint real está scopeado
+        # por cuenta/conversación, ver conversations/router.py
+        # get_message_media) -- este campo es solo la señal de "ya está
+        # guardado" que el frontend chequea antes de intentar traerlo.
+        media.storage_url = f"stored:{media.external_id}"
         return media
 
 

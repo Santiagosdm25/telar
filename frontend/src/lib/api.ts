@@ -76,3 +76,24 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   return (await resp.json()) as T
 }
+
+/**
+ * Para endpoints que devuelven el archivo en crudo (media adjunta a un
+ * mensaje), no JSON -- apiFetch siempre castea a JSON, por eso esto va
+ * aparte en vez de una opción más de apiFetch.
+ */
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  const token = getToken()
+  const headers = new Headers()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const resp = await fetch(`${API_URL}${path}`, { headers })
+  if (resp.status === 401) {
+    clearToken()
+    throw new ApiError(401, 'No autenticado')
+  }
+  if (!resp.ok) {
+    throw new ApiError(resp.status, resp.statusText)
+  }
+  return resp.blob()
+}

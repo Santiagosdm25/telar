@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     # Tamaño máximo aceptado del body del webhook, antes de leerlo.
     webhook_max_body_bytes: int = 65536
 
+    # Dónde se guardan los archivos de media descargados de Meta (fotos,
+    # audios, documentos). v0: disco local -- en producción es un volumen de
+    # Docker montado acá; si algún día la API corre en más de una instancia
+    # a la vez, este es el valor a apuntar a un mount compartido o a
+    # reemplazar por S3/MinIO (ver media/storage.py).
+    media_storage_dir: str = "./data/media"
+    media_max_bytes: int = 20 * 1024 * 1024
+
     # Autenticación de usuarios (no de WhatsApp).
     jwt_secret: str = ""
     jwt_expire_minutes: int = 60 * 24

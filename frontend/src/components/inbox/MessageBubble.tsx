@@ -1,26 +1,25 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Bot,
   Check,
   CheckCheck,
   Clock,
+  Download,
   FileText,
   Image as ImageIcon,
   Info,
+  Loader2,
   Music,
   Video,
 } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 
+import { fetchMessageMedia } from '@/lib/endpoints'
 import { clockTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { MessageMedia, MessageResponse } from '@/types/api'
 
-/**
- * El backend todavía no descarga el archivo de Meta (ver
- * channels/meta.py:download_media, nunca se llama) -- `storage_url` va a
- * ser null siempre por ahora. Mientras tanto, mostrar tipo + nombre de
- * archivo es mejor que el placeholder genérico "[image recibido]".
- */
 const MEDIA_LABEL: Record<string, string> = {
   image: 'Imagen',
   audio: 'Audio',
@@ -29,21 +28,79 @@ const MEDIA_LABEL: Record<string, string> = {
   sticker: 'Sticker',
 }
 
-function MediaChip({ media, type }: { media: MessageMedia; type: string }) {
+/**
+ * `media.storage_url` (en realidad solo una marca "ya está guardado", no
+ * una URL real -- ver channels/meta.py) es lo que dice si vale la pena
+ * pedir el archivo. Si el mensaje es de antes de esta función, o la
+ * descarga falló en su momento (Meta caída, archivo vencido, muy pesado),
+ * no hay nada que traer: se queda en el chip con el nombre nomás.
+ *
+ * El objeto URL creado con el blob no se libera explícitamente al
+ * desmontar -- vive hasta que se recarga la pestaña. Para el volumen de
+ * media de una bandeja de soporte no vale la pena la complejidad de
+ * trackear la revocación por ahora.
+ */
+function MediaChip({ media, type, messageId }: { media: MessageMedia; type: string; messageId: string }) {
+  const { accountId, conversationId } = useParams<{ accountId: string; conversationId: string }>()
   const mime = media.mime_type
-  const Icon = mime?.startsWith('image/')
-    ? ImageIcon
-    : mime?.startsWith('audio/')
-      ? Music
-      : mime?.startsWith('video/')
-        ? Video
-        : FileText
+  const isImage = mime?.startsWith('image/') ?? false
+  const isAudio = mime?.startsWith('audio/') ?? false
+  const isVideo = mime?.startsWith('video/') ?? false
+
+  const { data: objectUrl, isLoading, isError } = useQuery({
+    queryKey: ['message-media', messageId],
+    queryFn: async () => {
+      const blob = await fetchMessageMedia(accountId!, conversationId!, messageId)
+      return URL.createObjectURL(blob)
+    },
+    enabled: !!media.storage_url && !!accountId && !!conversationId,
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  const Icon = isImage ? ImageIcon : isAudio ? Music : isVideo ? Video : FileText
   const label = media.filename ?? MEDIA_LABEL[type] ?? 'Archivo adjunto'
+
+  if (isImage && objectUrl) {
+    return (
+      <a
+        href={objectUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="block max-w-[280px] overflow-hidden rounded-lg"
+      >
+        <img src={objectUrl} alt={media.caption ?? label} className="max-h-[320px] w-full object-cover" />
+      </a>
+    )
+  }
+
+  if (isAudio && objectUrl) {
+    // eslint-disable-next-line jsx-a11y/media-has-caption -- es contenido de un contacto, no hay caption que pedirle
+    return <audio controls src={objectUrl} className="h-10 max-w-[280px]" />
+  }
+
+  if (isVideo && objectUrl) {
+    return <video controls src={objectUrl} className="max-h-[320px] max-w-[280px] rounded-lg" />
+  }
 
   return (
     <div className="flex items-center gap-2 rounded-lg bg-black/[0.06] px-2.5 py-2 dark:bg-white/[0.06]">
       <Icon className="size-4 shrink-0 opacity-70" />
-      <span className="min-w-0 truncate text-[13px] font-medium">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{label}</span>
+      {isLoading && <Loader2 className="size-3.5 shrink-0 animate-spin opacity-60" />}
+      {isError && (
+        <span className="shrink-0 text-[11px] text-muted-foreground">no disponible</span>
+      )}
+      {objectUrl && (
+        <a
+          href={objectUrl}
+          download={media.filename ?? undefined}
+          aria-label={`Descargar ${label}`}
+          className="shrink-0 opacity-70 hover:opacity-100"
+        >
+          <Download className="size-3.5" />
+        </a>
+      )}
     </div>
   )
 }
@@ -115,7 +172,7 @@ export function MessageBubble({ message, grouped = false }: BubbleProps) {
         >
           {message.media ? (
             <div className="flex flex-col gap-1.5">
-              <MediaChip media={message.media} type={message.type} />
+              <MediaChip media={message.media} type={message.type} messageId={message.id} />
               {/* Si no hay caption real, content es el placeholder genérico
                   que arma as_agent_text() en el backend -- no se repite. */}
               {message.content && !/^\[\w+ recibido\]$/.test(message.content) && (

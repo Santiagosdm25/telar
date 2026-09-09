@@ -12,6 +12,7 @@ import asyncio
 import logging
 
 from langchain_core.messages import HumanMessage, ToolMessage
+
 from telar.agent import graph_cache
 from telar.agent.checkpointer import get_checkpointer
 from telar.agent.tools import escalar_a_humano
@@ -73,6 +74,16 @@ class Pipeline:
         # esto evita que el bot invoque al LLM y responda dos veces.
         new_messages = []
         for msg in batch:
+            if msg.media and msg.media.external_id:
+                try:
+                    msg.media = await self.adapter.download_media(
+                        msg.media, access_token=access_token
+                    )
+                except Exception:
+                    # Se guarda el mensaje igual, solo sin el archivo -- un
+                    # fallo de descarga (Meta caída, URL ya vencida) no debe
+                    # tumbar el mensaje entero.
+                    log.exception("no se pudo descargar el media de %s", msg.channel_message_id)
             inserted_id = await repo.save_inbound(msg, conv.id)
             if msg.channel_message_id:
                 await self.adapter.mark_read(

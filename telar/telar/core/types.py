@@ -230,7 +230,7 @@ class ChannelAdapter:
     async def send(self, message: OutboundMessage, to: ContactRef) -> SendResult:
         raise NotImplementedError
 
-    async def download_media(self, media: MediaRef) -> MediaRef:
+    async def download_media(self, media: MediaRef, *, access_token: str | None = None) -> MediaRef:
         raise NotImplementedError
 
     async def mark_read(self, channel_message_id: str) -> None:
