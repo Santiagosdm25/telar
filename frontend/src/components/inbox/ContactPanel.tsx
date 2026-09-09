@@ -64,7 +64,11 @@ function ContactPanelBody({
   return (
     <>
       <div className="flex flex-col items-center gap-3 border-b border-border px-5 py-6 text-center">
-        <ContactAvatar seed={conversation.contact_id} name={contactName} size="xl" />
+        {/* `name` va sin resolver a teléfono: initials() ya sabe caer a "?"
+            cuando no hay nombre. Pasarle contactName (que acá ya trae el
+            teléfono formateado como fallback) le hacía derivar "iniciales"
+            de dígitos, por ej. "+549 114 455 6677" -> "+6". */}
+        <ContactAvatar seed={conversation.contact_id} name={conversation.contact_name} size="xl" />
         <div className="min-w-0">
           <p className="truncate font-semibold">{contactName}</p>
           <p className="tabular font-mono text-xs text-muted-foreground">

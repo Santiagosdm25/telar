@@ -48,7 +48,7 @@ export function LoginPage() {
 
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5">
-            <Logo variant="horizontal" size={26} />
+            <Logo variant="horizontal" size={64} />
           </div>
 
           <h1 className="text-2xl font-semibold tracking-tight">Entrá a tu bandeja</h1>
