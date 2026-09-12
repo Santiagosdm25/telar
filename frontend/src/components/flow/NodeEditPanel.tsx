@@ -8,6 +8,7 @@ import { EditProviderDialog } from '@/components/settings/providers/EditProvider
 import { PROVIDER_LABEL } from '@/components/settings/providers/providerFormConstants'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -63,11 +64,13 @@ export function NodeEditPanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="system-prompt">Instrucciones</Label>
-          <p className="text-xs text-muted-foreground">
-            Lo que este nodo le dice al modelo. Si lo dejás vacío usa el prompt por defecto de la
-            cuenta.
-          </p>
+          <Label htmlFor="system-prompt" className="gap-1.5">
+            Instrucciones
+            <HelpTooltip>
+              Lo que este nodo le dice al modelo. Si lo dejás vacío usa el prompt por defecto de
+              la cuenta.
+            </HelpTooltip>
+          </Label>
           <Textarea
             id="system-prompt"
             className="mt-1 min-h-40 font-mono text-[12.5px] leading-relaxed"
@@ -84,6 +87,10 @@ export function NodeEditPanel({
             <Label className="gap-1.5">
               <Brain className="size-3.5 text-muted-foreground" />
               Memoria
+              <HelpTooltip>
+                Acorta lo que se le manda al modelo en este turno -- no borra nada de lo que ya
+                se guardó de la conversación.
+              </HelpTooltip>
             </Label>
             <Button
               type="button"
@@ -115,10 +122,6 @@ export function NodeEditPanel({
               Este nodo ve toda la conversación guardada, sin cortar nada.
             </p>
           )}
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            Acorta lo que se le manda al modelo en este turno -- no borra nada de lo que ya se
-            guardó de la conversación.
-          </p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -212,6 +215,10 @@ function ModelSection({ accountId }: { accountId: string }) {
       <Label className="gap-1.5">
         <Cpu className="size-3.5 text-muted-foreground" />
         Modelo
+        <HelpTooltip>
+          Es un ajuste de toda la cuenta, no de este nodo en particular -- todos los nodos que
+          uses comparten el mismo modelo.
+        </HelpTooltip>
       </Label>
 
       {isLoading ? (
@@ -241,7 +248,6 @@ function ModelSection({ accountId }: { accountId: string }) {
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        Aplica a todos los nodos de esta cuenta.{' '}
         <Link
           to={`/accounts/${accountId}/settings`}
           className="text-primary underline-offset-2 hover:underline"

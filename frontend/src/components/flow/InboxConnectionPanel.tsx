@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 
 import { CreateInboxForm, EditInboxForm, RotateCredentialsForm } from '@/components/InboxConnectionForm'
 import { Button } from '@/components/ui/button'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import type { InboxResponse } from '@/types/api'
 
 interface Props {
@@ -27,6 +28,11 @@ export function InboxConnectionPanel({ accountId, inboxes, onClose }: Props) {
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <RadioTower className="size-4 text-muted-foreground" />
         <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold">Conexión de WhatsApp</h2>
+        <HelpTooltip>
+          El hilo se dispara con cada mensaje nuevo que llega por este número. Los webhooks de
+          estado (entregado, leído) se ignoran automáticamente -- no hay otros eventos para
+          elegir todavía.
+        </HelpTooltip>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Cerrar panel">
           <X />
         </Button>
@@ -63,12 +69,6 @@ export function InboxConnectionPanel({ accountId, inboxes, onClose }: Props) {
             </Link>
           </p>
         )}
-
-        <p className="mt-4 rounded-lg border border-dashed border-border px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
-          El hilo se dispara con cada mensaje nuevo que llega por este número. Los webhooks de
-          estado (entregado, leído) se ignoran automáticamente -- no hay otros eventos para
-          elegir todavía.
-        </p>
       </div>
     </aside>
   )

@@ -3,6 +3,7 @@ import { FileText, Send, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { getTemplates } from '@/lib/endpoints'
 import { queryKeys } from '@/lib/queryKeys'
 import type { InboxResponse } from '@/types/api'
@@ -31,6 +32,10 @@ export function OutputConfigPanel({ accountId, inbox, onClose }: Props) {
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <Send className="size-4 text-muted-foreground" />
         <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold">Salida de WhatsApp</h2>
+        <HelpTooltip>
+          Este nodo no tiene un "cuerpo" fijo para escribir: el modelo arma el texto en cada
+          turno, según el prompt y las tools del nodo agente que lo precede.
+        </HelpTooltip>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Cerrar panel">
           <X />
         </Button>
@@ -52,12 +57,12 @@ export function OutputConfigPanel({ accountId, inbox, onClose }: Props) {
           <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
             <FileText className="size-3" />
             Fuera de la ventana de 24h
+            <HelpTooltip>
+              El agente no puede mandar texto libre. Hoy la conversación se transfiere a un
+              asesor en vez de mandar una plantilla sola -- llenar los parámetros de una
+              plantilla es decisión de un humano, no algo que el agente resuelva solo todavía.
+            </HelpTooltip>
           </div>
-          <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-            El agente no puede mandar texto libre. Hoy la conversación se transfiere a un asesor
-            en vez de mandar una plantilla sola -- llenar los parámetros de una plantilla es
-            decisión de un humano, no algo que el agente resuelva solo todavía.
-          </p>
           {templates && templates.length > 0 ? (
             <p className="mt-2 text-[11.5px] text-muted-foreground">
               {templates.length} {templates.length === 1 ? 'plantilla registrada' : 'plantillas registradas'}{' '}
@@ -75,11 +80,6 @@ export function OutputConfigPanel({ accountId, inbox, onClose }: Props) {
             Gestionar plantillas en Configuración
           </Link>
         </div>
-
-        <p className="mt-4 rounded-lg border border-dashed border-border px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
-          Este nodo no tiene un "cuerpo" fijo para escribir: el modelo arma el texto en cada
-          turno, según el prompt y las tools del nodo agente que lo precede.
-        </p>
       </div>
     </aside>
   )
