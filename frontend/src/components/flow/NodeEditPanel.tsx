@@ -24,6 +24,7 @@ interface Props {
   data: AgentNodeData
   availableTools: AvailableToolResponse[]
   onChange: (data: AgentNodeData) => void
+  onRename: (name: string) => void
   onDelete: () => void
   onClose: () => void
 }
@@ -34,6 +35,7 @@ export function NodeEditPanel({
   data,
   availableTools,
   onChange,
+  onRename,
   onDelete,
   onClose,
 }: Props) {
@@ -63,6 +65,8 @@ export function NodeEditPanel({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+        <NodeNameField key={nodeId} nodeId={nodeId} onRename={onRename} />
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="system-prompt" className="gap-1.5">
             Instrucciones
@@ -189,6 +193,51 @@ export function NodeEditPanel({
         </Button>
       </div>
     </aside>
+  )
+}
+
+/**
+ * El nombre visible ES el `id` del nodo (lo que queda en el JSON real del
+ * grafo) -- no hay un campo de display aparte. Por eso el commit es recién
+ * al salir del campo (blur/Enter), no en cada tecla: cambiar el id en vivo
+ * mientras se escribe le haría perder el foco al input en cuanto el padre
+ * re-renderice con el nuevo nodeId.
+ *
+ * El padre monta esto con `key={nodeId}` (ver NodeEditPanel más abajo):
+ * así el estado local arranca de cero cada vez que cambia el nodo
+ * seleccionado o se confirma un rename, sin necesitar un useEffect para
+ * resincronizarlo.
+ */
+function NodeNameField({ nodeId, onRename }: { nodeId: string; onRename: (name: string) => void }) {
+  const label = nodeId.replace(/_\d{10,}_\d+$/, '')
+  const [value, setValue] = React.useState(label)
+
+  function commit() {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== label) {
+      onRename(trimmed)
+    } else {
+      setValue(label)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="node-name">Nombre</Label>
+      <Input
+        id="node-name"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.currentTarget.blur()
+          }
+        }}
+        className="font-mono text-[12.5px]"
+      />
+    </div>
   )
 }
 

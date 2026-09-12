@@ -62,6 +62,8 @@ import {
   flowToGraph,
   graphToFlow,
   newAgentNodeId,
+  slugifyNodeName,
+  uniqueNodeId,
   type AgentNodeData,
 } from '@/lib/flowGraph'
 import { shortTimestamp } from '@/lib/format'
@@ -212,6 +214,25 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
 
   function handleNodeDataChange(nodeId: string, data: AgentNodeData) {
     setNodes((current) => current.map((n) => (n.id === nodeId ? { ...n, data } : n)))
+    setDirty(true)
+  }
+
+  function handleRenameNode(oldId: string, rawName: string) {
+    const others = new Set(nodes.filter((n) => n.id !== oldId).map((n) => n.id))
+    const newId = uniqueNodeId(slugifyNodeName(rawName), others)
+    if (newId === oldId) return
+
+    setNodes((current) => current.map((n) => (n.id === oldId ? { ...n, id: newId } : n)))
+    setEdges((current) =>
+      current.map((e) => {
+        const source = e.source === oldId ? newId : e.source
+        const target = e.target === oldId ? newId : e.target
+        return source === e.source && target === e.target
+          ? e
+          : { ...e, id: `${source}->${target}`, source, target }
+      }),
+    )
+    setSelectedNodeId(newId)
     setDirty(true)
   }
 
@@ -385,6 +406,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             data={selectedNode.data as AgentNodeData}
             availableTools={availableTools ?? []}
             onChange={(data) => handleNodeDataChange(selectedNode.id, data)}
+            onRename={(name) => handleRenameNode(selectedNode.id, name)}
             onDelete={() => handleDeleteNode(selectedNode.id)}
             onClose={() => setSelectedNodeId(null)}
           />

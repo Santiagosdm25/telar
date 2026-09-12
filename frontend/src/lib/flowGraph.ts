@@ -101,6 +101,31 @@ export function newAgentNodeId(): string {
   return `agente_${Date.now()}_${nodeCounter}`
 }
 
+/**
+ * El nombre que el usuario escribe en "Nombre" se convierte en el `id`
+ * real del nodo -- es lo único que el backend guarda (agent/compiler.py
+ * no valida el charset, pero LangGraph usa el id como clave interna, así
+ * que se restringe a algo seguro en vez de dejar pasar cualquier texto).
+ */
+export function slugifyNodeName(raw: string): string {
+  const slug = raw
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // sin tildes
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return slug || 'agente'
+}
+
+/** Si el slug ya lo usa otro nodo, le suma un sufijo numérico hasta que sea único. */
+export function uniqueNodeId(base: string, existingIds: Set<string>): string {
+  if (!existingIds.has(base)) return base
+  let i = 2
+  while (existingIds.has(`${base}_${i}`)) i++
+  return `${base}_${i}`
+}
+
 export interface AgentStep {
   id: string
   systemPrompt: string | null
