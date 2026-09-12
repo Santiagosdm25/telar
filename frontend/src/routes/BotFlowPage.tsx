@@ -232,39 +232,40 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
         <MobileMenuButton />
         <h1 className="text-[15px] font-semibold tracking-tight">Flujo del bot</h1>
-        <span className="tabular rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground">
+        <span className="tabular hidden shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground sm:inline-flex">
           {agentCount} {agentCount === 1 ? 'nodo' : 'nodos'}
         </span>
         {bot && (
-          <span className="text-xs text-muted-foreground">
+          <span className="hidden shrink-0 text-xs text-muted-foreground xl:inline">
             {bot.name} · v{bot.version}
           </span>
         )}
         {dirty && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-status-pending">
+          <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-status-pending sm:flex">
             <span className="size-1.5 rounded-full bg-status-pending" />
             Sin guardar
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
           {dirty && (
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notas de esta versión (opcional)"
+              placeholder="Notas (opcional)"
               aria-label="Notas de esta versión"
-              className="h-8 w-56 text-[13px]"
+              className="h-8 w-28 min-w-0 text-[13px] sm:w-40 lg:w-56"
             />
           )}
-          <Button variant="outline" size="sm" onClick={handleAddNode}>
+          <Button variant="outline" size="sm" onClick={handleAddNode} aria-label="Agregar nodo">
             <Plus />
-            Agregar nodo
+            <span className="hidden xl:inline">Agregar nodo</span>
           </Button>
           {canManageVersions && (
             <Button
               variant={testChatOpen ? 'secondary' : 'ghost'}
               size="sm"
+              aria-label="Probar"
               onClick={() => {
                 setTestChatOpen((v) => !v)
                 setSelectedNodeId(null)
@@ -273,12 +274,13 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
               aria-pressed={testChatOpen}
             >
               <TestTube2 />
-              Probar
+              <span className="hidden xl:inline">Probar</span>
             </Button>
           )}
           <Button
             variant={showJson ? 'secondary' : 'ghost'}
             size="sm"
+            aria-label="JSON"
             onClick={() => {
               setShowJson((v) => !v)
               setTestChatOpen(false)
@@ -286,19 +288,22 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             aria-pressed={showJson}
           >
             <Braces />
-            JSON
+            <span className="hidden xl:inline">JSON</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setVersionsOpen(true)}>
+          <Button variant="ghost" size="sm" aria-label="Versiones" onClick={() => setVersionsOpen(true)}>
             <History />
-            Versiones
+            <span className="hidden xl:inline">Versiones</span>
           </Button>
           <Button
             size="sm"
+            aria-label={saveMutation.isPending ? 'Guardando' : 'Guardar'}
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || !dirty}
           >
             {saveMutation.isPending ? <Loader2 className="animate-spin" /> : <Save />}
-            {saveMutation.isPending ? 'Guardando…' : 'Guardar'}
+            <span className="hidden xl:inline">
+              {saveMutation.isPending ? 'Guardando…' : 'Guardar'}
+            </span>
           </Button>
         </div>
       </header>
