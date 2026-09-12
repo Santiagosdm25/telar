@@ -319,7 +319,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <div className="relative min-h-0 min-w-0 flex-1">
+        <div className="relative min-h-0 min-w-0 flex-1 bg-[radial-gradient(ellipse_at_center,var(--surface-2)_0%,var(--background)_65%)]">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -332,9 +332,12 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             colorMode={resolved}
             proOptions={{ hideAttribution: true }}
             fitView
-            fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
+            {/* Grilla más suelta y suave -- con pocos nodos, una grilla
+                densa/marcada hace que el lienzo se sienta vacío en vez de
+                sentirse como un espacio de trabajo. */}
+            <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="var(--border)" />
             <Controls showInteractive={false} />
             <MiniMap
               pannable
