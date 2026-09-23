@@ -15,9 +15,12 @@ async def get_pool() -> AsyncConnectionPool:
         _pool = AsyncConnectionPool(
             conninfo=settings().database_url,
             min_size=1,
-            max_size=10,
+            max_size=settings().db_pool_max_size,
             open=False,
-            kwargs={"autocommit": True},
+            # prepare_threshold=None: sin prepared statements, que se rompen
+            # detrás de un pooler en modo transacción (Supabase :6543,
+            # PgBouncer). Con Postgres directo cuesta poco.
+            kwargs={"autocommit": True, "prepare_threshold": None},
         )
         await _pool.open(wait=True)
     return _pool

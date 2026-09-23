@@ -72,6 +72,10 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         Sin esta validación tu endpoint es público y cualquiera puede hacer
         hablar a tu bot. No la desactives ni en desarrollo.
         """
+        # Sin secreto, el HMAC se calcularía con clave vacía y cualquiera
+        # podría firmar: se rechaza todo en vez de aceptar todo.
+        if not self.app_secret:
+            return False
         if not signature_header or not signature_header.startswith("sha256="):
             return False
         expected = hmac.new(

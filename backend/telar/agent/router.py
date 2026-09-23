@@ -11,12 +11,17 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
-from telar.agent import graph_cache
+from telar.agent import graph_cache, trace
 from telar.agent.checkpointer import get_checkpointer
-from telar.agent.compiler import GraphCompileError, compile_graph
+from telar.agent.compiler import (
+    GraphCompileError,
+    compile_graph,
+    message_text,
+    tool_called_this_turn,
+)
 from telar.agent.graph import TOOLS
 from telar.agent.tools import escalar_a_humano
 from telar.auth.dependencies import Membership, require_role
@@ -53,6 +58,8 @@ class BotVersionResponse(BaseModel):
 class AvailableToolResponse(BaseModel):
     name: str
     description: str
+    # "system" (las fijas de Telar) o el tipo de la tool configurable: http, sql, document.
+    kind: str
 
 
 async def _get_bot_or_404(account_id: UUID) -> dict:
@@ -141,7 +148,9 @@ async def list_available_tools(
 ) -> list[AvailableToolResponse]:
     extra_tools = await build_custom_tools(account_id)
     return [
-        AvailableToolResponse(name=t.name, description=t.description)
+        AvailableToolResponse(
+            name=t.name, description=t.description, kind=(t.metadata or {}).get("kind", "system")
+        )
         for t in TOOLS + extra_tools
     ]
 
@@ -151,10 +160,23 @@ class TestChatRequest(BaseModel):
     session_id: str | None = None  # None = arrancar una sesión de prueba nueva
 
 
+class TraceEvent(BaseModel):
+    """Un paso del turno, para mostrar en el lienzo qué agente hizo qué."""
+
+    agent: str
+    # delegated | tool_call | tool_result | message | error
+    kind: str
+    name: str | None = None
+    args: dict[str, Any] | None = None
+    text: str | None = None
+    error: bool = False
+
+
 class TestChatResponse(BaseModel):
     session_id: str
     reply: str
     would_escalate: bool
+    trace: list[TraceEvent] = []
 
 
 @router.post("/test-chat", response_model=TestChatResponse)
@@ -181,20 +203,19 @@ async def test_chat(
     checkpointer = await get_checkpointer()
     graph = await graph_cache.get_or_build(account_id, checkpointer)
 
-    result = await graph.ainvoke(
-        {
-            "messages": [HumanMessage(content=body.message)],
-            "system_prompt": settings().default_system_prompt,
-            "account_id": str(account_id),
-        },
-        config={"configurable": {"thread_id": thread_id}},
-    )
+    with trace.collect() as events:
+        result = await graph.ainvoke(
+            {
+                "messages": [HumanMessage(content=body.message)],
+                "system_prompt": settings().default_system_prompt,
+                "account_id": str(account_id),
+            },
+            config={"configurable": {"thread_id": thread_id}},
+        )
 
-    reply_msg = result["messages"][-1]
-    reply = reply_msg.content if isinstance(reply_msg.content, str) else str(reply_msg.content)
-    would_escalate = any(
-        isinstance(m, ToolMessage) and m.name == escalar_a_humano.name
-        for m in result["messages"][-3:]
+    return TestChatResponse(
+        session_id=session_id,
+        reply=message_text(result["messages"][-1]),
+        would_escalate=tool_called_this_turn(result["messages"], escalar_a_humano.name),
+        trace=[TraceEvent(**e) for e in events],
     )
-
-    return TestChatResponse(session_id=session_id, reply=reply, would_escalate=would_escalate)

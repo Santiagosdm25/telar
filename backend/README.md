@@ -24,7 +24,9 @@ make logs                   # logs de la API en vivo
 
 La documentación interactiva de la API queda en `http://localhost:8000/docs`.
 
-**Migraciones:** los archivos de `migrations/` se aplican solos **solo la primera vez** que se crea el volumen de Postgres. En una base que ya existe, una migración nueva hay que aplicarla a mano con `psql`. Es un pendiente conocido (auditoría, R-A4).
+**Migraciones:** `python -m telar.db.migrate` aplica las pendientes de `migrations/` en orden, cada una en su transacción, y lleva el registro en la tabla `schema_migrations`. Corre sola antes de la API (servicio `migrate` del compose), en desarrollo y en producción. Para agregar una, crea `migrations/010_lo_que_sea.sql`; nunca edites una que ya se aplicó. `make migrate-status` lista el estado. Una base creada antes de que existiera el runner se marca una vez con `make migrate-baseline`.
+
+**Producción:** ver [`docs/DEPLOY.md`](../docs/DEPLOY.md) (`make deploy`, Supabase o Postgres propio, Cloudflare Tunnel).
 
 ### Tests
 
@@ -52,7 +54,9 @@ Todo por variables de entorno (`.env`), leídas en `telar/config.py`.
 
 | Variable | Para qué | Default |
 |---|---|---|
-| `DATABASE_URL` | Postgres: estado, memoria del agente y vectores | `postgresql://telar:telar@localhost:5432/telar` (en Docker lo fija el compose) |
+| `ENV` | `production` exige todos los secretos y rechaza los valores de desarrollo; el compose de producción lo fuerza | `development` |
+| `DATABASE_URL` | Postgres: estado, memoria del agente y vectores. Supabase: usar el *Session pooler* | `postgresql://telar:telar@localhost:5432/telar` (en dev lo fija el compose) |
+| `DB_POOL_MAX_SIZE` | Conexiones a Postgres por proceso | `10` |
 | `META_APP_SECRET` | Valida la firma del webhook. **Obligatoria**: vacía, cualquiera puede firmar webhooks falsos | — |
 | `META_VERIFY_TOKEN` | Cadena que inventas y pegas en la consola de Meta | — |
 | `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID` | Credenciales globales, solo como respaldo de inboxes sin token propio | — |
@@ -70,9 +74,10 @@ Todo por variables de entorno (`.env`), leídas en `telar/config.py`.
 | `WEBHOOK_MAX_BODY_BYTES` | Tamaño máximo del body del webhook | `65536` |
 | `MEDIA_STORAGE_DIR`, `MEDIA_MAX_BYTES` | Dónde y hasta qué tamaño se guardan fotos/audios/documentos | `./data/media` / 20 MB |
 | `LOG_LEVEL` | Nivel de log | `INFO` |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Solo si usas el servicio `tunnel` | — |
+| `TRUSTED_CLIENT_IP_HEADER` | Header con la IP real detrás de un proxy (el compose de producción pone `CF-Connecting-IP`) | — |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Obligatorio en producción; en dev solo si usas el servicio `tunnel` | — |
 
-Hoy la app **arranca aunque falten las obligatorias** y queda insegura; validarlas al arranque es lo primero de la auditoría.
+`JWT_SECRET` y `ENCRYPTION_KEY` se validan siempre al arrancar. Con `ENV=production` además son obligatorios `META_APP_SECRET` y `META_VERIFY_TOKEN`, y se rechazan los valores de ejemplo, las credenciales `telar:telar` y un `FRONTEND_ORIGIN` en localhost: la API no arranca antes que arrancar insegura. Sin `META_APP_SECRET`, el webhook rechaza toda firma.
 
 ### Modelos
 
@@ -148,28 +153,34 @@ Ver la auditoría (S-C2, S-A3) para los huecos pendientes en ambas.
 
 ## Compilador de grafos
 
-El agente se compila desde un JSON guardado en `bot_versions.graph` con `build_graph()`. Es el contrato entre el constructor visual del panel y el runtime. Sin bot propio, la cuenta usa un grafo por defecto de un nodo.
+El agente se compila desde un JSON guardado en `bot_versions.graph` (`agent/compiler.py`). Es el contrato entre el constructor visual del panel (**Flujo del bot**) y el runtime. Sin bot propio, la cuenta usa un grafo por defecto de un solo agente.
 
-Formato — una cadena lineal de nodos `agent` (todavía sin ramas condicionales):
+**Formato v2 — agente principal y sub-agentes** (`agent/multi_agent.py`), el que arma el panel:
 
 ```json
 {
-  "nodes": [
-    {"id": "triage", "type": "agent", "system_prompt": "Detectá qué necesita el cliente.", "tools": []},
-    {"id": "respuesta", "type": "agent", "system_prompt": "Respondé con la base de conocimiento.", "tools": ["consultar_base_de_conocimiento", "escalar_a_humano"]}
+  "version": 2,
+  "agents": [
+    {"id": "principal", "role": "main", "name": "Agente principal",
+     "system_prompt": "Atendés a los clientes de…", "tools": ["escalar_a_humano"],
+     "subagents": ["validar_identidad"], "memory_window": 30},
+    {"id": "validar_identidad", "role": "sub", "name": "Validar identidad",
+     "description": "Cuando el cliente quiere cambiar datos sensibles. Necesita el documento.",
+     "system_prompt": "1. Consultá el documento…", "tools": ["api_registro", "enviar_otp"]}
   ],
-  "edges": [
-    {"from": "START", "to": "triage"},
-    {"from": "triage", "to": "respuesta"},
-    {"from": "respuesta", "to": "END"}
-  ]
+  "layout": {"principal": {"x": 320, "y": 120}}
 }
 ```
 
-- `system_prompt` es opcional; si falta, usa el global (`default_system_prompt` en `config.py`).
-- `tools` es opcional; si falta, el nodo tiene todas las disponibles; `[]` significa ninguna.
+- El **principal** es el único que habla con el cliente y ve la conversación (checkpointer).
+- Cada **sub-agente** es para el principal una herramienta más, `delegar_<id>`: recibe una `tarea` en texto con los datos que el principal ya juntó, corre su propio loop con sus herramientas y devuelve el resultado. No ve la conversación ni le habla al cliente; si le falta un dato, responde `FALTA: …` y el principal se lo pide al cliente. La `description` es lo que el principal lee para decidir cuándo llamarlo (obligatoria).
+- **Un solo nivel**: los sub-agentes usan herramientas, no otros sub-agentes. `escalar_a_humano` es solo del principal.
+- `tools` es explícito: sin herramientas listadas, el agente no tiene ninguna. `layout` es solo para el lienzo.
+- Un sub-agente que falla no tumba el turno: el principal recibe un aviso y puede disculparse o escalar.
 
-Se edita desde el panel (**Flujo del bot**, con chat de prueba) o con `PUT /accounts/{id}/bot`, que compila el grafo con las tools reales antes de guardar: un JSON inválido no llega a la base. Cada guardado crea una versión y se puede volver a una anterior. Existe también `python -m telar.agent.deploy_bot`, pero no invalida la caché de los procesos que ya están corriendo (auditoría, R-M13).
+**Formato v1 — cadena lineal** (sin `version`): nodos `agent` en fila (`nodes` + `edges` desde `START` hasta `END`). Se sigue ejecutando para los bots guardados antes de v2; el panel lo convierte a v2 al abrirlo (el primer nodo pasa a principal y el resto a sub-agentes) y el cambio vale recién al guardar.
+
+Se guarda desde el panel o con `PUT /accounts/{id}/bot`, que compila el grafo con las tools reales antes de guardar: un JSON inválido no llega a la base. Cada guardado crea una versión y se puede volver a una anterior. El **chat de prueba** (`POST /accounts/{id}/bot/test-chat`) devuelve además la traza del turno (qué agente actuó, qué herramienta llamó y qué devolvió, `agent/trace.py`), que el panel muestra y resalta en el lienzo. Existe también `python -m telar.agent.deploy_bot`, pero no invalida la caché de los procesos que ya están corriendo (auditoría, R-M13).
 
 ## Anti-abuso
 

@@ -5,28 +5,41 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
   useEdgesState,
   useNodesState,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
+  type NodeChange,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Braces, History, Info, Loader2, Plus, RotateCcw, Save, TestTube2, X } from 'lucide-react'
+import {
+  Bot,
+  Braces,
+  History,
+  Info,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Save,
+  TestTube2,
+  Wrench,
+  X,
+} from 'lucide-react'
 import * as React from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { AgentNode } from '@/components/flow/AgentNode'
-import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
-import { EndpointNode, type EndpointNodeData } from '@/components/flow/EndpointNode'
-import { OutputConfigPanel } from '@/components/flow/OutputConfigPanel'
 import { InboxConnectionPanel } from '@/components/flow/InboxConnectionPanel'
 import { NodeEditPanel } from '@/components/flow/NodeEditPanel'
 import { TestChatPanel } from '@/components/flow/TestChatPanel'
+import { ToolNode } from '@/components/flow/ToolNode'
+import { ToolPanel } from '@/components/flow/ToolPanel'
 import { TriggerNode, type TriggerNodeData } from '@/components/flow/TriggerNode'
+import { MobileMenuButton } from '@/components/layout/MobileMenuButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +49,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -58,33 +79,48 @@ import {
   saveBot,
 } from '@/lib/endpoints'
 import {
+  CHILD_OFFSET_Y,
   DEFAULT_GRAPH,
+  HANDLE,
+  START_ID,
+  connectionProblem,
+  edgeForConnection,
+  edgeIdFor,
+  edgeKind,
   flowToGraph,
   graphToFlow,
-  newAgentNodeId,
-  slugifyNodeName,
+  newAgentNode,
+  newToolNode,
+  slugify,
+  toolNameFromId,
+  toolNodeId,
   uniqueNodeId,
+  withToolCounts,
   type AgentNodeData,
+  type ToolNodeData,
 } from '@/lib/flowGraph'
 import { shortTimestamp } from '@/lib/format'
 import { isAdmin } from '@/lib/roles'
 import { queryKeys } from '@/lib/queryKeys'
 import { useTheme } from '@/lib/theme'
+import { toolIcon, toolKindLabel } from '@/lib/toolMeta'
+import type { AvailableToolResponse, BotGraph, TraceEvent } from '@/types/api'
 
-const nodeTypes = { agent: AgentNode, endpoint: EndpointNode, trigger: TriggerNode }
+const nodeTypes = { agent: AgentNode, tool: ToolNode, trigger: TriggerNode }
 
 function BotFlowEditor({ accountId }: { accountId: string }) {
   const queryClient = useQueryClient()
   const { resolved } = useTheme()
   const { roleForAccount } = useAuth()
   const canManageVersions = isAdmin(roleForAccount(accountId))
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [nodes, setNodes, applyNodeChanges] = useNodesState<Node>([])
+  const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([])
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
   const [showJson, setShowJson] = React.useState(false)
   const [testChatOpen, setTestChatOpen] = React.useState(false)
   const [versionsOpen, setVersionsOpen] = React.useState(false)
   const [hydrated, setHydrated] = React.useState(false)
+  const [converted, setConverted] = React.useState(false)
   const [dirty, setDirty] = React.useState(false)
   const [notes, setNotes] = React.useState('')
 
@@ -98,117 +134,175 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     queryFn: () => getInboxes(accountId),
   })
 
-  React.useEffect(() => {
-    if (hydrated || bot === undefined) return
-    const { nodes: n, edges: e } = graphToFlow(bot?.graph ?? DEFAULT_GRAPH)
-    setNodes(n)
-    setEdges(e)
-    setHydrated(true)
-  }, [bot, hydrated, setNodes, setEdges])
+  const loadGraph = React.useCallback(
+    (graph: BotGraph, tools: AvailableToolResponse[]) => {
+      const flow = graphToFlow(graph, tools)
+      setNodes(flow.nodes)
+      setEdges(flow.edges)
+      setConverted(flow.converted)
+      // Un bot del formato viejo se convierte al abrirlo: queda "sin guardar"
+      // para que el cambio sea explícito, no silencioso.
+      setDirty(flow.converted)
+    },
+    [setNodes, setEdges],
+  )
 
-  /* El nodo de inicio no vive en el JSON del grafo (START es solo un
-     ancla de edges) -- se le inyecta la conexión real acá, sin pasar por
-     graphToFlow/flowToGraph. */
+  // Hacen falta las dos cosas: las tools definen tipo e íconos de cada nodo.
+  React.useEffect(() => {
+    if (hydrated || bot === undefined || availableTools === undefined) return
+    loadGraph(bot?.graph ?? DEFAULT_GRAPH, availableTools)
+    setHydrated(true)
+  }, [bot, availableTools, hydrated, loadGraph])
+
+  /* El nodo de WhatsApp no vive en el JSON (START es solo un ancla): se le
+     inyecta la conexión real acá. */
   React.useEffect(() => {
     if (!hydrated || inboxes === undefined) return
     const primary = inboxes[0]
     setNodes((current) =>
-      current.map((n) => {
-        if (n.type === 'trigger') {
-          return {
-            ...n,
-            data: {
-              label: 'START',
-              inboxName: primary?.name ?? null,
-              phoneNumberId: primary?.phone_number_id ?? null,
-            } satisfies TriggerNodeData,
-          }
-        }
-        if (n.type === 'endpoint') {
-          return {
-            ...n,
-            data: {
-              label: 'END',
-              phoneNumberId: primary?.phone_number_id ?? null,
-            } satisfies EndpointNodeData,
-          }
-        }
-        return n
-      }),
+      current.map((n) =>
+        n.type === 'trigger'
+          ? {
+              ...n,
+              data: {
+                label: 'START',
+                inboxName: primary?.name ?? null,
+                phoneNumberId: primary?.phone_number_id ?? null,
+              } satisfies TriggerNodeData,
+            }
+          : n,
+      ),
     )
   }, [inboxes, hydrated, setNodes])
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      saveBot(accountId, bot?.name ?? 'Bot principal', flowToGraph(nodes, edges), notes),
+    mutationFn: () => saveBot(accountId, bot?.name ?? 'Bot principal', flowToGraph(nodes, edges), notes),
     onSuccess: () => {
       setDirty(false)
+      setConverted(false)
       setNotes('')
-      toast.success('Hilo guardado', { description: 'Los cambios ya están activos.' })
+      toast.success('Flujo guardado', { description: 'Los cambios ya están activos.' })
       queryClient.invalidateQueries({ queryKey: queryKeys.bot(accountId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.botVersions(accountId) })
     },
     onError: (e) => {
-      toast.error(e instanceof ApiError ? e.message : 'No se pudo guardar el hilo')
+      toast.error(e instanceof ApiError ? e.message : 'No se pudo guardar el flujo')
     },
   })
 
-  /**
-   * Restaurar una versión no toca `hydrated` (ya está en true): si
-   * dependiéramos de ese efecto para releer `bot`, la primera actualización
-   * de la caché (todavía con los datos viejos, antes de que el refetch
-   * resuelva) lo dejaría trabado. Más simple: pedir el bot de nuevo acá
-   * mismo y pintar ese grafo directo en el lienzo.
-   */
+  function handleSave() {
+    const missing = nodes.find(
+      (n) => n.type === 'agent' && (n.data as AgentNodeData).role === 'sub' && !(n.data as AgentNodeData).description.trim(),
+    )
+    if (missing) {
+      setSelectedNodeId(missing.id)
+      setTestChatOpen(false)
+      toast.error(`Falta describir cuándo se llama a "${(missing.data as AgentNodeData).name}"`)
+      return
+    }
+    saveMutation.mutate()
+  }
+
   async function handleVersionActivated() {
     const fresh = await getBot(accountId)
-    if (fresh) {
-      const { nodes: n, edges: e } = graphToFlow(fresh.graph)
-      setNodes(n)
-      setEdges(e)
-    }
+    if (fresh) loadGraph(fresh.graph, availableTools ?? [])
     setDirty(false)
     setNotes('')
-    queryClient.setQueryData(['bot', accountId], fresh)
+    queryClient.setQueryData(queryKeys.bot(accountId), fresh)
     queryClient.invalidateQueries({ queryKey: queryKeys.botVersions(accountId) })
   }
 
-  const onConnect = React.useCallback(
-    (connection: Connection) => {
-      setDirty(true)
-      setEdges((current) => {
-        // cada nodo admite un solo edge de salida: conectar uno nuevo
-        // reemplaza al anterior, en vez de dejar crear algo que el
-        // compilador va a rechazar de todas formas.
-        const withoutOldOutgoing = current.filter((e) => e.source !== connection.source)
-        return addEdge({ ...connection, animated: true }, withoutOldOutgoing)
-      })
+  /* Cambios del lienzo: mover o borrar con el teclado también cuenta como
+     "sin guardar" (antes borrar una conexión con Backspace no lo marcaba). */
+  const onNodesChange = React.useCallback(
+    (changes: NodeChange[]) => {
+      applyNodeChanges(changes)
+      if (changes.some((c) => c.type === 'remove' || (c.type === 'position' && c.dragging === false))) {
+        setDirty(true)
+      }
+      if (changes.some((c) => c.type === 'remove' && c.id === selectedNodeId)) setSelectedNodeId(null)
     },
-    [setEdges],
+    [applyNodeChanges, selectedNodeId],
   )
 
-  function handleAddNode() {
-    const id = newAgentNodeId()
-    const maxX = nodes.reduce((max, n) => Math.max(max, n.position.x), 0)
-    setNodes((current) => [
-      ...current,
-      {
-        id,
-        type: 'agent',
-        position: { x: maxX + 280, y: 260 },
-        data: { systemPrompt: null, tools: null, memoryWindow: null } satisfies AgentNodeData,
-      },
-    ])
-    setSelectedNodeId(id)
+  const onEdgesChange = React.useCallback(
+    (changes: EdgeChange[]) => {
+      applyEdgeChanges(changes)
+      if (changes.some((c) => c.type === 'remove')) setDirty(true)
+    },
+    [applyEdgeChanges],
+  )
+
+  // El contador de herramientas de cada agente sigue a las conexiones.
+  React.useEffect(() => {
+    setNodes((current) => withToolCounts(current, edges))
+  }, [edges, setNodes])
+
+  const isValidConnection = React.useCallback(
+    (c: Connection | Edge) => connectionProblem(c, nodes, edges) === null,
+    [nodes, edges],
+  )
+
+  const onConnect = React.useCallback(
+    (connection: Connection) => {
+      const problem = connectionProblem(connection, nodes, edges)
+      if (problem) {
+        toast.error(problem)
+        return
+      }
+      setEdges((current) => [...current, edgeForConnection(connection)])
+      setDirty(true)
+    },
+    [nodes, edges, setEdges],
+  )
+
+  const mainNode = nodes.find((n) => n.type === 'agent' && (n.data as AgentNodeData).role === 'main')
+
+  /** Siguiente lugar libre en la fila de lo que `parent` puede usar (debajo de él). */
+  function nextChildSlot(parent: { x: number; y: number }) {
+    const rowY = parent.y + CHILD_OFFSET_Y
+    const inRow = nodes.filter((n) => n.id !== START_ID && Math.abs(n.position.y - rowY) < 60)
+    const right = inRow.reduce((max, n) => Math.max(max, n.position.x + (n.type === 'agent' ? 256 : 176)), -Infinity)
+    return { x: Number.isFinite(right) ? right + 40 : parent.x, y: rowY }
+  }
+
+  function handleAddSubAgent() {
+    const ids = new Set(nodes.map((n) => n.id))
+    const node = newAgentNode('sub', ids, nextChildSlot(mainNode?.position ?? { x: 320, y: 120 }))
+    setNodes((current) => [...current, node])
+    // Recién creado, casi siempre se quiere que el principal lo pueda usar.
+    if (mainNode) {
+      setEdges((current) => [
+        ...current,
+        edgeForConnection({
+          source: mainNode.id,
+          sourceHandle: HANDLE.tools,
+          target: node.id,
+          targetHandle: HANDLE.in,
+        }),
+      ])
+    }
+    setSelectedNodeId(node.id)
+    setTestChatOpen(false)
     setDirty(true)
   }
 
+  function handleAddTool(tool: AvailableToolResponse) {
+    const id = toolNodeId(tool.name)
+    if (!nodes.some((n) => n.id === id)) {
+      const target = nodes.find((n) => n.id === selectedNodeId && n.type === 'agent') ?? mainNode
+      setNodes((current) => [
+        ...current,
+        newToolNode(tool, nextChildSlot(target?.position ?? { x: 320, y: 120 })),
+      ])
+      setDirty(true)
+    }
+    setSelectedNodeId(id)
+    setTestChatOpen(false)
+  }
+
   function handleNodeClick(_: React.MouseEvent, node: Node) {
-    setSelectedNodeId(
-      node.type === 'agent' || node.type === 'trigger' || node.type === 'endpoint'
-        ? node.id
-        : null,
-    )
+    setSelectedNodeId(node.id)
     setTestChatOpen(false)
   }
 
@@ -217,22 +311,37 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     setDirty(true)
   }
 
-  function handleRenameNode(oldId: string, rawName: string) {
-    const others = new Set(nodes.filter((n) => n.id !== oldId).map((n) => n.id))
-    const newId = uniqueNodeId(slugifyNodeName(rawName), others)
-    if (newId === oldId) return
+  function handleRename(nodeId: string, name: string) {
+    const node = nodes.find((n) => n.id === nodeId)
+    if (!node) return
+    const data = { ...(node.data as AgentNodeData), name }
+    // El id del principal no cambia; el de un sub-agente sigue a su nombre
+    // porque termina en la herramienta `delegar_<id>` que ve el modelo.
+    const newId =
+      data.role === 'main'
+        ? nodeId
+        : uniqueNodeId(slugify(name), new Set(nodes.filter((n) => n.id !== nodeId).map((n) => n.id)))
 
-    setNodes((current) => current.map((n) => (n.id === oldId ? { ...n, id: newId } : n)))
-    setEdges((current) =>
-      current.map((e) => {
-        const source = e.source === oldId ? newId : e.source
-        const target = e.target === oldId ? newId : e.target
-        return source === e.source && target === e.target
-          ? e
-          : { ...e, id: `${source}->${target}`, source, target }
-      }),
-    )
-    setSelectedNodeId(newId)
+    setNodes((current) => current.map((n) => (n.id === nodeId ? { ...n, id: newId, data } : n)))
+    if (newId !== nodeId) {
+      setEdges((current) =>
+        current.map((e) => {
+          if (e.source !== nodeId && e.target !== nodeId) return e
+          const next = {
+            ...e,
+            source: e.source === nodeId ? newId : e.source,
+            target: e.target === nodeId ? newId : e.target,
+          }
+          return { ...next, id: edgeIdFor(next) }
+        }),
+      )
+      setSelectedNodeId(newId)
+    }
+    setDirty(true)
+  }
+
+  function handleDisconnect(sourceId: string, targetId: string) {
+    setEdges((current) => current.filter((e) => !(e.source === sourceId && e.target === targetId)))
     setDirty(true)
   }
 
@@ -243,18 +352,82 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     setDirty(true)
   }
 
+  /* Resalta en el lienzo lo que actuó en el último turno del chat de prueba.
+     No marca "sin guardar": `active` no va al JSON. */
+  const handleTrace = React.useCallback(
+    (trace: TraceEvent[] | null) => {
+      const agents = new Set(trace?.map((e) => e.agent))
+      const used = new Set(
+        trace
+          ?.filter((e) => e.kind === 'tool_call' && e.name && !e.name.startsWith('delegar_'))
+          .map((e) => `${e.agent}->${e.name}`),
+      )
+      const delegated = new Set(
+        trace
+          ?.filter((e) => e.kind === 'tool_call' && e.name?.startsWith('delegar_'))
+          .map((e) => `${e.agent}->${e.name!.slice('delegar_'.length)}`),
+      )
+      const usedTools = new Set([...used].map((k) => k.split('->')[1]))
+      setNodes((current) =>
+        current.map((n) => {
+          const active =
+            n.type === 'agent' ? agents.has(n.id) : n.type === 'tool' ? usedTools.has(toolNameFromId(n.id)) : false
+          return (n.data as { active?: boolean }).active === active ? n : { ...n, data: { ...n.data, active } }
+        }),
+      )
+      setEdges((current) =>
+        current.map((e) => {
+          const key = `${e.source}->${toolNameFromId(e.target)}`
+          const kind = edgeKind(e)
+          const animated =
+            kind === 'delegate' ? delegated.has(`${e.source}->${e.target}`) : kind === 'tool' && used.has(key)
+          return !!e.animated === animated ? e : { ...e, animated }
+        }),
+      )
+    },
+    [setNodes, setEdges],
+  )
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const graphPreview = React.useMemo(() => flowToGraph(nodes, edges), [nodes, edges])
+  const agentNames = React.useMemo(
+    () =>
+      Object.fromEntries(
+        nodes.filter((n) => n.type === 'agent').map((n) => [n.id, (n.data as AgentNodeData).name]),
+      ),
+    [nodes],
+  )
   const agentCount = nodes.filter((n) => n.type === 'agent').length
+  const toolsOnCanvas = new Set(nodes.filter((n) => n.type === 'tool').map((n) => toolNameFromId(n.id)))
+
+  const selectedAgentTools =
+    selectedNode?.type === 'agent'
+      ? edges
+          .filter((e) => e.source === selectedNode.id && edgeKind(e) === 'tool')
+          .map((e) => nodes.find((n) => n.id === e.target)?.data as ToolNodeData | undefined)
+          .filter((d): d is ToolNodeData => !!d)
+      : []
+  const selectedAgentSubs =
+    selectedNode?.type === 'agent'
+      ? edges
+          .filter((e) => e.source === selectedNode.id && edgeKind(e) === 'delegate')
+          .map((e) => ({ id: e.target, name: agentNames[e.target] ?? e.target }))
+      : []
+  const selectedToolUsers =
+    selectedNode?.type === 'tool'
+      ? edges
+          .filter((e) => e.target === selectedNode.id)
+          .map((e) => ({ id: e.source, name: agentNames[e.source] ?? e.source }))
+      : []
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Barra de la pantalla: fuera del lienzo, no flotando encima */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
         <MobileMenuButton />
         <h1 className="text-[15px] font-semibold tracking-tight">Flujo del bot</h1>
         <span className="tabular hidden shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted-foreground sm:inline-flex">
-          {agentCount} {agentCount === 1 ? 'nodo' : 'nodos'}
+          {agentCount} {agentCount === 1 ? 'agente' : 'agentes'} · {toolsOnCanvas.size}{' '}
+          {toolsOnCanvas.size === 1 ? 'herramienta' : 'herramientas'}
         </span>
         {bot && (
           <span className="hidden shrink-0 text-xs text-muted-foreground xl:inline">
@@ -278,10 +451,27 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
               className="h-8 w-28 min-w-0 text-[13px] sm:w-40 lg:w-56"
             />
           )}
-          <Button variant="outline" size="sm" onClick={handleAddNode} aria-label="Agregar nodo">
+          <Button variant="outline" size="sm" onClick={handleAddSubAgent} aria-label="Agregar sub-agente">
             <Plus />
-            <span className="hidden xl:inline">Agregar nodo</span>
+            <Bot />
+            <span className="hidden xl:inline">Sub-agente</span>
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="Agregar herramienta">
+                <Plus />
+                <Wrench />
+                <span className="hidden xl:inline">Herramienta</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <ToolMenuItems
+                tools={availableTools ?? []}
+                onCanvas={toolsOnCanvas}
+                onPick={handleAddTool}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canManageVersions && (
             <Button
               variant={testChatOpen ? 'secondary' : 'ghost'}
@@ -318,25 +508,31 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
           <Button
             size="sm"
             aria-label={saveMutation.isPending ? 'Guardando' : 'Guardar'}
-            onClick={() => saveMutation.mutate()}
+            onClick={handleSave}
             disabled={saveMutation.isPending || !dirty}
           >
             {saveMutation.isPending ? <Loader2 className="animate-spin" /> : <Save />}
-            <span className="hidden xl:inline">
-              {saveMutation.isPending ? 'Guardando…' : 'Guardar'}
-            </span>
+            <span className="hidden xl:inline">{saveMutation.isPending ? 'Guardando…' : 'Guardar'}</span>
           </Button>
         </div>
       </header>
 
-      {/* Aviso fijo, no flotante: hay que verlo antes de empezar a armar el flujo,
-          no solo si se lo nota flotando sobre el canvas. */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-surface-2 px-5 py-2 text-[12.5px] text-muted-foreground">
         <Info className="size-3.5 shrink-0" />
-        <p>
-          Cadena lineal: cada nodo se conecta a lo sumo a uno solo, sin ramas condicionales. El
-          nodo de inicio es la conexión de WhatsApp — clic en cualquier nodo para editarlo.
-        </p>
+        {converted ? (
+          <p>
+            <span className="font-medium text-foreground">Flujo convertido al formato nuevo.</span> El
+            primer paso pasó a ser el agente principal y el resto, sub-agentes suyos. Revisalo y guardá
+            para activarlo.
+          </p>
+        ) : (
+          <p>
+            El <span className="font-medium text-foreground">principal</span> habla con el cliente. Lo que le
+            conectás abajo (herramientas y <span className="font-medium text-primary">sub-agentes</span>) lo{' '}
+            <span className="font-medium text-foreground">puede usar</span>: decide él en cada mensaje si hace
+            falta. Las líneas punteadas son opcionales; la única que pasa siempre es WhatsApp → principal.
+          </p>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -347,17 +543,15 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            isValidConnection={isValidConnection}
             onNodeClick={handleNodeClick}
             onPaneClick={() => setSelectedNodeId(null)}
             nodeTypes={nodeTypes}
             colorMode={resolved}
             proOptions={{ hideAttribution: true }}
             fitView
-            fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+            fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
           >
-            {/* Grilla más suelta y suave -- con pocos nodos, una grilla
-                densa/marcada hace que el lienzo se sienta vacío en vez de
-                sentirse como un espacio de trabajo. */}
             <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="var(--border)" />
             <Controls showInteractive={false} />
             <MiniMap
@@ -368,7 +562,6 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
               nodeColor="var(--border-strong)"
             />
           </ReactFlow>
-
         </div>
 
         {showJson && (
@@ -376,16 +569,9 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
               <h2 className="flex-1 text-[13px] font-semibold">
                 JSON del grafo
-                <span className="ml-2 font-normal text-muted-foreground">
-                  bot_versions.graph
-                </span>
+                <span className="ml-2 font-normal text-muted-foreground">bot_versions.graph</span>
               </h2>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setShowJson(false)}
-                aria-label="Cerrar JSON"
-              >
+              <Button variant="ghost" size="icon-sm" onClick={() => setShowJson(false)} aria-label="Cerrar JSON">
                 <X />
               </Button>
             </header>
@@ -396,7 +582,15 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
         )}
 
         {testChatOpen && !selectedNode && (
-          <TestChatPanel accountId={accountId} onClose={() => setTestChatOpen(false)} />
+          <TestChatPanel
+            accountId={accountId}
+            agentNames={agentNames}
+            onTrace={handleTrace}
+            onClose={() => {
+              setTestChatOpen(false)
+              handleTrace(null)
+            }}
+          />
         )}
 
         {selectedNode?.type === 'agent' && (
@@ -404,28 +598,30 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
             accountId={accountId}
             nodeId={selectedNode.id}
             data={selectedNode.data as AgentNodeData}
-            availableTools={availableTools ?? []}
+            connectedTools={selectedAgentTools}
+            subagents={selectedAgentSubs}
             onChange={(data) => handleNodeDataChange(selectedNode.id, data)}
-            onRename={(name) => handleRenameNode(selectedNode.id, name)}
+            onRename={(name) => handleRename(selectedNode.id, name)}
+            onDisconnect={(targetId) => handleDisconnect(selectedNode.id, targetId)}
+            onSelect={setSelectedNodeId}
             onDelete={() => handleDeleteNode(selectedNode.id)}
             onClose={() => setSelectedNodeId(null)}
           />
         )}
 
-        {selectedNode?.type === 'trigger' && (
-          <InboxConnectionPanel
+        {selectedNode?.type === 'tool' && (
+          <ToolPanel
             accountId={accountId}
-            inboxes={inboxes ?? []}
+            data={selectedNode.data as ToolNodeData}
+            usedBy={selectedToolUsers}
+            onSelect={setSelectedNodeId}
+            onRemove={() => handleDeleteNode(selectedNode.id)}
             onClose={() => setSelectedNodeId(null)}
           />
         )}
 
-        {selectedNode?.type === 'endpoint' && (
-          <OutputConfigPanel
-            accountId={accountId}
-            inbox={inboxes?.[0]}
-            onClose={() => setSelectedNodeId(null)}
-          />
+        {selectedNode?.id === START_ID && (
+          <InboxConnectionPanel accountId={accountId} inboxes={inboxes ?? []} onClose={() => setSelectedNodeId(null)} />
         )}
       </div>
 
@@ -437,6 +633,51 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
         onActivated={handleVersionActivated}
       />
     </div>
+  )
+}
+
+function ToolMenuItems({
+  tools,
+  onCanvas,
+  onPick,
+}: {
+  tools: AvailableToolResponse[]
+  onCanvas: Set<string>
+  onPick: (tool: AvailableToolResponse) => void
+}) {
+  const system = tools.filter((t) => t.kind === 'system')
+  const custom = tools.filter((t) => t.kind !== 'system')
+
+  const item = (tool: AvailableToolResponse) => {
+    const Icon = toolIcon(tool.name, tool.kind)
+    return (
+      <DropdownMenuItem key={tool.name} onSelect={() => onPick(tool)} className="items-start">
+        <Icon className="mt-0.5 text-status-resolved" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-mono text-[12px]">{tool.name}</span>
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {toolKindLabel(tool.kind)}
+            {onCanvas.has(tool.name) && ' · ya está en el lienzo'}
+          </span>
+        </span>
+      </DropdownMenuItem>
+    )
+  }
+
+  return (
+    <>
+      <DropdownMenuLabel>De Telar</DropdownMenuLabel>
+      {system.map(item)}
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>De la cuenta</DropdownMenuLabel>
+      {custom.length ? (
+        custom.map(item)
+      ) : (
+        <p className="px-2 py-1.5 text-[12px] text-muted-foreground">
+          Todavía no hay. Creá APIs y consultas SQL en Configuración → Herramientas.
+        </p>
+      )}
+    </>
   )
 }
 

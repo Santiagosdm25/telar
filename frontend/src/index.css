@@ -278,6 +278,34 @@
   overflow: hidden;
 }
 
+/* Tipos de conexión del constructor de flujos (ver lib/flowGraph.ts).
+   Punteado = opcional: el agente decide en cada turno si lo usa (sub-agente
+   en coral, herramienta en verde). Sólido = siempre (WhatsApp → principal). */
+.react-flow__edge.flow-edge-delegate .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 1.75;
+  stroke-dasharray: 6 4;
+}
+.react-flow__edge.flow-edge-tool .react-flow__edge-path {
+  stroke: var(--status-resolved);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.react-flow__edge.flow-edge-trigger .react-flow__edge-path {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 2.5;
+}
+.react-flow__edge.flow-edge-delegate .react-flow__edge-text {
+  fill: var(--primary-soft-foreground);
+  font-size: 11px;
+}
+.react-flow__edge.flow-edge-delegate .react-flow__edge-textbg {
+  fill: var(--surface);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

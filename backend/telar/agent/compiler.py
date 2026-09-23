@@ -1,10 +1,17 @@
 """
 Compilador: traduce el JSON de bot_versions.graph a un StateGraph de
-LangGraph real. El JSON es el contrato entre el futuro editor visual y el
-runtime -- se puede escribir y probar a mano mucho antes de que exista
-una sola interfaz.
+LangGraph real. El JSON es el contrato entre el editor visual y el runtime.
 
-Formato del JSON (v0, sin ramas condicionales):
+Hay dos formatos:
+
+- **v2** (`"version": 2`): un agente principal que habla con el cliente y
+  delega en sub-agentes, que usa como herramientas. Es el que arma el
+  constructor visual. Ver agent/multi_agent.py.
+- **v1** (sin `version`): cadena lineal de nodos, abajo. Se sigue
+  soportando para los bots guardados antes de v2 y para el grafo por
+  defecto de las cuentas sin bot propio.
+
+Formato v1 (sin ramas condicionales):
     {
       "nodes": [{"id": "...", "type": "agent", "system_prompt": "...", "tools": [...] | null,
                  "memory_window": 20 | null}],
@@ -27,12 +34,14 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, TypedDict
 
-from langchain_core.messages import AnyMessage, SystemMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
+from telar.agent import trace
 from telar.llm.registry import get_model
 
 log = logging.getLogger(__name__)
@@ -55,6 +64,14 @@ def compile_graph(
     model_kwargs: dict[str, Any] | None = None,
     checkpointer: Any = None,
 ):
+    if graph_json.get("version") == 2:
+        # Import tardío: multi_agent reutiliza los helpers de este módulo.
+        from telar.agent.multi_agent import compile_multi_agent
+
+        return compile_multi_agent(
+            graph_json, available_tools, model_spec, model_kwargs, checkpointer
+        )
+
     nodes = graph_json.get("nodes", [])
     edges = graph_json.get("edges", [])
     if not nodes:
@@ -95,18 +112,19 @@ def compile_graph(
 
         graph.add_node(
             node_id,
-            _make_agent_node(
+            make_agent_node(
                 node.get("system_prompt"),
                 node_tools,
                 model_spec,
                 model_kwargs,
                 memory_window=node.get("memory_window"),
+                agent_id=node_id,
             ),
         )
 
         if node_tools:
             tools_id = f"{node_id}__tools"
-            graph.add_node(tools_id, ToolNode(node_tools))
+            graph.add_node(tools_id, make_tools_node(node_tools, agent_id=node_id))
             graph.add_conditional_edges(
                 node_id,
                 _make_router(tools_id, next_target),
@@ -139,24 +157,76 @@ def _resolve_tools(
     return resolved
 
 
-def _make_agent_node(
+def message_text(message: AnyMessage) -> str:
+    """
+    El texto de un mensaje del modelo. Con Anthropic, `content` puede ser una
+    lista de bloques (texto, thinking, tool_use): mandar `str(content)` le
+    haría llegar al cliente `[{'type': 'text', ...}]` literal.
+    """
+    content = message.content
+    if isinstance(content, str):
+        return content
+    parts = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(block.get("text", ""))
+    return "".join(parts)
+
+
+def tool_called_this_turn(messages: list[AnyMessage], tool_name: str) -> bool:
+    """¿Se ejecutó `tool_name` después del último mensaje del cliente?
+
+    Mirar solo los últimos N mensajes fallaba cuando el agente llamaba otra
+    herramienta (o delegaba) después de pedir el traspaso.
+    """
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return False
+        if isinstance(message, ToolMessage) and message.name == tool_name:
+            return True
+    return False
+
+
+def trim_history(history: list[AnyMessage], memory_window: int | None) -> list[AnyMessage]:
+    """
+    Los últimos `memory_window` mensajes, empezando siempre en un mensaje del
+    cliente. Cortar en un número fijo podía dejar primero un ToolMessage sin
+    la llamada que lo originó, y Anthropic/OpenAI rechazan eso con un 400 en
+    todos los turnos siguientes.
+    """
+    if memory_window is None:
+        return history
+    window = history[-max(memory_window, 1):]
+    for i, message in enumerate(window):
+        if isinstance(message, HumanMessage):
+            return window[i:]
+    # La ventana quedó toda dentro de un turno con herramientas: se retrocede
+    # hasta el último mensaje del cliente.
+    for i in range(len(history) - 1, -1, -1):
+        if isinstance(history[i], HumanMessage):
+            return history[i:]
+    return window
+
+
+def make_agent_node(
     system_prompt: str | None,
     tools: list[BaseTool],
     model_spec: str | None,
     model_kwargs: dict[str, Any] | None = None,
     memory_window: int | None = None,
+    agent_id: str = "agente",
 ):
     model = get_model(model_spec, **(model_kwargs or {}))
     bound_model = model.bind_tools(tools) if tools else model
 
     async def agent(state: AgentState):
         prompt = system_prompt or state["system_prompt"]
-        history = state["messages"]
         # memory_window acorta lo que ve el modelo, no lo que guarda el
         # checkpointer -- restaurar el nodo a "sin límite" recupera el
         # historial completo sin perder nada de lo ya conversado.
-        if memory_window is not None and memory_window >= 0:
-            history = history[-memory_window:] if memory_window > 0 else []
+        history = trim_history(state["messages"], memory_window)
         messages = [SystemMessage(content=prompt), *history]
         try:
             reply = await bound_model.ainvoke(messages)
@@ -169,10 +239,40 @@ def _make_agent_node(
             log.error(
                 "el modelo del agente falló para la cuenta %s: %s", state["account_id"], e
             )
+            trace.record(agent=agent_id, kind="error", text=trace.clip(e))
             raise
+
+        if trace.enabled():
+            for call in getattr(reply, "tool_calls", None) or []:
+                trace.record(
+                    agent=agent_id, kind="tool_call", name=call["name"], args=call.get("args", {})
+                )
+            text = message_text(reply)
+            if text.strip():
+                trace.record(agent=agent_id, kind="message", text=trace.clip(text))
         return {"messages": [reply]}
 
     return agent
+
+
+def make_tools_node(tools: list[BaseTool], agent_id: str):
+    """ToolNode + registro en la traza de lo que devolvió cada herramienta."""
+    tool_node = ToolNode(tools)
+
+    async def run_tools(state: AgentState, config: RunnableConfig):
+        result = await tool_node.ainvoke(state, config)
+        if trace.enabled():
+            for message in result.get("messages", []):
+                trace.record(
+                    agent=agent_id,
+                    kind="tool_result",
+                    name=message.name,
+                    text=trace.clip(message.content),
+                    error=getattr(message, "status", None) == "error",
+                )
+        return result
+
+    return run_tools
 
 
 def _make_router(tools_dest: str, next_dest: str):

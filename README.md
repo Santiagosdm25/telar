@@ -57,7 +57,8 @@ La regla que sostiene el diseño: **ni el agente ni la lógica de negocio ven un
 backend/     API, webhook, agente y base de datos (Python · FastAPI · LangGraph · Postgres)
 frontend/    Panel web: bandeja, contactos, equipo, configuración, constructor de flujos (React · Vite)
 brand/       Logo del README y reglas de uso de la marca
-docs/        Auditoría y documentación de operación
+deploy/      Compose de producción (API + túnel, base externa)
+docs/        Auditoría y guía de despliegue
 Makefile     Atajos de desarrollo (delegan en backend/Makefile)
 ```
 
@@ -68,6 +69,7 @@ El backend y el frontend son independientes: el panel habla con la API solo por 
 | Backend | [`backend/README.md`](backend/README.md) — configuración, variables, traspaso, bases de conocimiento, herramientas, roles, compilador de grafos |
 | Frontend | [`frontend/README.md`](frontend/README.md) — desarrollo y despliegue en Cloudflare Pages |
 | Marca | [`brand/README.md`](brand/README.md) |
+| Salir a producción | [`docs/DEPLOY.md`](docs/DEPLOY.md) — Supabase o Postgres propio, VPS, Cloudflare Tunnel y Pages |
 | Estado y pendientes | [`docs/AUDITORIA.md`](docs/AUDITORIA.md) |
 
 ## Arranque rápido (desarrollo)
@@ -95,7 +97,7 @@ cd frontend && npm install && npm run dev        # http://localhost:5173
 
 Entra con el usuario que creaste, crea una cuenta y conecta tu número desde **Configuración → Inboxes**. `make help` lista el resto de los atajos.
 
-Para que Meta llegue al webhook hace falta una URL pública con HTTPS: ver *Exponer el webhook* en [`backend/README.md`](backend/README.md#exponer-el-webhook).
+Para que Meta llegue al webhook hace falta una URL pública con HTTPS: ver *Exponer el webhook* en [`backend/README.md`](backend/README.md#exponer-el-webhook). Para un servidor de verdad, [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Licencia
 

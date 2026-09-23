@@ -108,24 +108,43 @@ export interface ContactResponse {
   email: string | null
 }
 
-export interface GraphNode {
+/** Formato v1 (cadena lineal). Solo se lee, para convertir bots viejos a v2. */
+export interface LegacyGraphNode {
   id: string
   type: 'agent'
   system_prompt?: string | null
   tools?: string[] | null
-  /** Cuántos mensajes recientes ve el modelo en este nodo. null = sin límite. */
   memory_window?: number | null
 }
 
-export interface GraphEdge {
-  from: string
-  to: string
+export interface LegacyBotGraph {
+  version?: undefined
+  nodes: LegacyGraphNode[]
+  edges: { from: string; to: string }[]
 }
 
-export interface BotGraph {
-  nodes: GraphNode[]
-  edges: GraphEdge[]
+/** Formato v2: agente principal + sub-agentes. Ver backend/telar/agent/multi_agent.py. */
+export interface GraphAgent {
+  id: string
+  role: 'main' | 'sub'
+  name: string
+  /** Sub-agentes: cuándo lo llama el principal. Obligatoria para role=sub. */
+  description?: string | null
+  system_prompt?: string | null
+  tools: string[]
+  subagents?: string[]
+  /** Cuántos mensajes recientes ve el principal. null = sin límite. */
+  memory_window?: number | null
 }
+
+export interface BotGraphV2 {
+  version: 2
+  agents: GraphAgent[]
+  /** Posiciones en el lienzo: id del agente, "START" o "tool:<nombre>". */
+  layout: Record<string, { x: number; y: number }>
+}
+
+export type BotGraph = BotGraphV2 | LegacyBotGraph
 
 export interface BotResponse {
   id: string
@@ -137,6 +156,8 @@ export interface BotResponse {
 export interface AvailableToolResponse {
   name: string
   description: string
+  /** "system" (las fijas de Telar), "http", "sql" o "document". */
+  kind: string
 }
 
 export interface TemplateComponent {
@@ -223,10 +244,21 @@ export interface TestConnectionResponse {
   error: string | null
 }
 
+export interface TraceEvent {
+  /** id del agente que actuó. */
+  agent: string
+  kind: 'delegated' | 'tool_call' | 'tool_result' | 'message' | 'error'
+  name?: string | null
+  args?: Record<string, unknown> | null
+  text?: string | null
+  error?: boolean
+}
+
 export interface TestChatResponse {
   session_id: string
   reply: string
   would_escalate: boolean
+  trace: TraceEvent[]
 }
 
 export interface KnowledgeBaseResponse {

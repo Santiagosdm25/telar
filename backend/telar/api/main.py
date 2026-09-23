@@ -35,8 +35,17 @@ dispatcher = Dispatcher(pipeline.handle, on_rate_limited=pipeline.handle_rate_li
 router = APIRouter()
 
 
-@router.get("/health")
-async def health() -> dict[str, str]:
+@router.get("/health", response_model=None)
+async def health() -> dict[str, str] | Response:
+    # Consulta la base: con la base externa (Supabase), "el proceso vive"
+    # no alcanza para decir que el servicio funciona.
+    try:
+        pool = await get_pool()
+        async with pool.connection() as conn:
+            await conn.execute("SELECT 1")
+    except Exception:
+        log.exception("health: la base no responde")
+        return Response(status_code=503, content='{"status":"db_unavailable"}', media_type="application/json")
     return {"status": "ok"}
 
 

@@ -3,15 +3,28 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
+from cryptography.fernet import Fernet
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Valores de los .env.example: si llegan a producción es que nadie los cambió.
+_PLACEHOLDERS = {"cambia-esto-por-algo-aleatorio"}
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: si la validación falla, el error NO debe imprimir
+    # los valores (secretos y la contraseña de DATABASE_URL irían a los logs).
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+
+    # "production" hace obligatorios los secretos y rechaza los defaults de
+    # desarrollo: la app no arranca antes que arrancar insegura.
+    env: Literal["development", "production"] = "development"
 
     # Base de datos: la pone el usuario, es su Postgres.
     database_url: str = "postgresql://telar:telar@localhost:5432/telar"
+    db_pool_max_size: int = 10
 
     # WhatsApp Cloud API
     meta_app_secret: str = ""
@@ -58,7 +71,46 @@ class Settings(BaseSettings):
     # no "*" -- ver README, sección de anti-abuso.
     frontend_origin: str = "http://localhost:5173"
 
+    # Header del que leer la IP real del cliente cuando la API está detrás de
+    # un proxy (p. ej. "CF-Connecting-IP" con Cloudflare Tunnel). Vacío = la
+    # IP de la conexión. Solo es seguro si la API no es alcanzable sin pasar
+    # por ese proxy -- si no, cualquiera inventa el header.
+    trusted_client_ip_header: str = ""
+
     log_level: str = "INFO"
+
+    @model_validator(mode="after")
+    def _check_secrets(self) -> Settings:
+        errors: list[str] = []
+
+        # Siempre: sin estas dos la app no funciona, mejor saberlo al arrancar
+        # que en el primer login o el primer mensaje.
+        if not self.jwt_secret:
+            errors.append("JWT_SECRET está vacío")
+        try:
+            Fernet(self.encryption_key.encode())
+        except (ValueError, TypeError):
+            errors.append("ENCRYPTION_KEY no es una clave Fernet válida")
+
+        if self.env == "production":
+            if len(self.jwt_secret) < 32:
+                errors.append("JWT_SECRET debe tener al menos 32 caracteres")
+            # Con META_APP_SECRET vacío la firma del webhook se calcula con
+            # clave vacía y cualquiera puede falsificarla.
+            for name in ("meta_app_secret", "meta_verify_token"):
+                value = getattr(self, name)
+                if not value or value in _PLACEHOLDERS:
+                    errors.append(f"{name.upper()} está vacío o es el valor de ejemplo")
+            if "telar:telar@" in self.database_url:
+                errors.append("DATABASE_URL usa las credenciales de desarrollo (telar:telar)")
+            if "localhost" in self.frontend_origin:
+                errors.append("FRONTEND_ORIGIN apunta a localhost")
+
+        if errors:
+            raise ValueError(
+                "Configuración inválida (ver backend/.env.example):\n  - " + "\n  - ".join(errors)
+            )
+        return self
 
 
 @lru_cache

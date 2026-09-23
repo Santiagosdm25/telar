@@ -11,10 +11,11 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage
 
 from telar.agent import graph_cache
 from telar.agent.checkpointer import get_checkpointer
+from telar.agent.compiler import message_text, tool_called_this_turn
 from telar.agent.tools import escalar_a_humano
 from telar.channels.meta import MetaWhatsAppAdapter, resolve_inbox_credentials
 from telar.config import settings
@@ -120,8 +121,7 @@ class Pipeline:
                 config={"configurable": {"thread_id": str(conv.id)}},
             )
 
-        reply = result["messages"][-1]
-        answer = reply.content if isinstance(reply.content, str) else str(reply.content)
+        answer = message_text(result["messages"][-1])
 
         if answer.strip():
             await self._send(conv, first, answer, phone_number_id, access_token)
@@ -129,10 +129,7 @@ class Pipeline:
         # Si el agente llamó a la tool de handoff, soltamos la conversación.
         # Se inspecciona el ToolMessage de la ejecución, no el texto de la
         # respuesta: así no depende de lo que la tool devuelva como string.
-        if any(
-            isinstance(m, ToolMessage) and m.name == escalar_a_humano.name
-            for m in result["messages"][-3:]
-        ):
+        if tool_called_this_turn(result["messages"], escalar_a_humano.name):
             st.request_handoff(conv, team_id=conv.team_id)
             await repo.save_conversation(conv)
             log.info("conversación %s transferida a humano", conv.id)

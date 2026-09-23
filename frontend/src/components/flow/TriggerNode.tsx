@@ -29,7 +29,7 @@ export function TriggerNode({ data, selected }: NodeProps & { data: TriggerNodeD
         >
           <RadioTower className="size-3.5" />
         </span>
-        <span className="truncate text-[12px] font-medium">Conexión de WhatsApp</span>
+        <span className="truncate text-[12px] font-medium">WhatsApp</span>
       </div>
 
       <div className="px-3 py-2.5">
@@ -45,10 +45,12 @@ export function TriggerNode({ data, selected }: NodeProps & { data: TriggerNodeD
         )}
       </div>
 
+      {/* Siempre conectado al agente principal: no se arrastra a mano. */}
       <Handle
         type="source"
         position={Position.Right}
-        className="!size-2.5 !border-2 !border-background !bg-border-strong transition-colors hover:!bg-primary"
+        isConnectable={false}
+        className="!size-2.5 !border-2 !border-background !bg-border-strong"
       />
     </div>
   )

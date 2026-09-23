@@ -36,7 +36,10 @@ async def build_custom_tools(account_id: UUID) -> list[BaseTool]:
 
         try:
             secret = decrypt_secret(row.get("secret_config"))
-            tools.append(builder(row, secret))
+            tool = builder(row, secret)
+            # El constructor de flujos lo usa para mostrar cada tool con su tipo.
+            tool.metadata = {**(tool.metadata or {}), "kind": row["kind"]}
+            tools.append(tool)
         except Exception:
             log.exception(
                 "no se pudo armar la tool %s (cuenta %s), se omite",

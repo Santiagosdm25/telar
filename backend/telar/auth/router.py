@@ -56,7 +56,13 @@ class ChangePasswordRequest(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, request: Request) -> TokenResponse:
     # Rate limit por IP: protege contra fuerza bruta sobre el password.
-    client_ip = request.client.host if request.client else "desconocido"
+    # Detrás de Cloudflare Tunnel todas las conexiones llegan desde el
+    # contenedor del túnel: sin el header, 5 intentos fallidos de cualquiera
+    # bloquearían el login de todos.
+    header = settings().trusted_client_ip_header
+    client_ip = (header and request.headers.get(header)) or (
+        request.client.host if request.client else "desconocido"
+    )
     allowed = await ratelimit.allow(
         f"login:{client_ip}",
         settings().login_rate_limit_attempts,

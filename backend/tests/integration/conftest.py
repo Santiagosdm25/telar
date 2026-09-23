@@ -30,6 +30,9 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "postgresql://telar:telar@localhost:5432/telar_test")
+# Sin secreto el adapter rechaza todo webhook (firmar con clave vacía es
+# justo lo que no debe funcionar), así que los tests firman con uno propio.
+os.environ.setdefault("META_APP_SECRET", "test-app-secret")
 _ADMIN_CONNINFO = os.environ.get(
     "TEST_DB_ADMIN_CONNINFO", "postgresql://telar:telar@localhost:5432/telar"
 )

@@ -10,6 +10,39 @@ lo que seguía vigente de esas notas está incorporado acá (sección 7).
 
 ---
 
+## Avance
+
+**2026-09-23 — salida a producción** (ver [`DEPLOY.md`](DEPLOY.md)):
+
+| Hallazgo | Estado |
+|---|---|
+| S-C1 / I-C3 · secretos vacíos aceptados | ✅ `config.py` valida al arrancar (siempre `JWT_SECRET`/`ENCRYPTION_KEY`; con `ENV=production` todo lo demás). Sin `META_APP_SECRET` el webhook rechaza toda firma. |
+| R-A4 / I-C1 · sin sistema de migraciones | ✅ `telar/db/migrate.py` + tabla `schema_migrations`, corre antes de la API. Probado sobre base vacía (esquema idéntico al existente) e idempotente. |
+| I-C2 · Postgres publicado con `telar/telar` | ✅ en dev solo en `127.0.0.1`; en producción no hay Postgres en el compose (base externa). Falta: usuario de base sin superusuario en Postgres propio (documentado). |
+| M5 infra · compose pisa `DATABASE_URL` | ✅ `deploy/docker-compose.prod.yml` lo lee del `.env`. |
+| I-A2 parcial · TLS / API expuesta | ✅ en producción la API solo escucha en localhost; HTTPS por Cloudflare Tunnel. |
+| S-M2 · rate limit de login global detrás del túnel | ✅ `TRUSTED_CLIENT_IP_HEADER=CF-Connecting-IP` en producción. |
+| M3 infra / R-M15 parcial · healthcheck | ✅ `/health` consulta la base; healthcheck y `stop_grace_period` en el compose de producción. |
+| M7 infra parcial · logs sin rotación | ✅ rotación en el compose de producción. |
+| M1 infra · caché del Dockerfile | 🟡 las migraciones ya no invalidan el `pip install`; el código sí (falta lockfile, I-A1). |
+| — · compatibilidad con poolers (Supabase/PgBouncer) | ✅ pool sin prepared statements. |
+
+**2026-09-23 — agentes y sub-agentes en el flujo del bot:**
+
+| Hallazgo | Estado |
+|---|---|
+| R-A2 · `memory_window` corta pares tool-call/resultado | ✅ `trim_history()` siempre empieza en un mensaje del cliente; v2 exige ≥ 1. |
+| R-M4 · al cliente le llega `[{'type': 'text'…}]` | ✅ `message_text()` concatena los bloques de texto. |
+| R-M5 · detección del traspaso frágil (últimos 3 mensajes) | ✅ `tool_called_this_turn()` mira todo el turno. |
+| R-M3 parcial · validación del grafo | ✅ en v2: ids, roles, un solo principal, un nivel, tipos, descripción obligatoria. v1 sin cambios. |
+| F-A4 · `memory_window` vacío guarda 0 | ✅ el campo exige ≥ 1. |
+| F-M2 · el constructor pierde nodos sueltos | ✅ en v2 se guardan los agentes y las herramientas sueltas con su posición. |
+| F-M3 · borrar con el teclado no marca "sin guardar" | ✅ mover o borrar en el lienzo marca "sin guardar". |
+
+Siguen abiertos los críticos de código: **S-C2, S-C3, R-C1, R-C2**.
+
+---
+
 ## 1. Resumen
 
 **El diseño es bueno; la puesta en producción no está lista.** La

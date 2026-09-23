@@ -1,0 +1,74 @@
+# Producción: API + túnel de Cloudflare. Sin Postgres adentro -- la base es
+# externa (Supabase, RDS, Neon o un Postgres propio) y se elige con
+# DATABASE_URL en backend/.env. Guía completa: docs/DEPLOY.md.
+#
+# No se usa directo: `make deploy` (desde la raíz del repo) lo llama con
+# `--env-file backend/.env`, que es de donde sale CLOUDFLARE_TUNNEL_TOKEN.
+
+name: telar-prod
+
+x-logging: &logging
+  # Sin rotación, los logs de Docker crecen hasta llenar el disco.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # Aplica las migraciones pendientes y termina. La API no arranca si falla.
+  migrate:
+    build: ../backend
+    image: telar-backend
+    env_file: ../backend/.env
+    environment:
+      ENV: production
+    command: ["python", "-m", "telar.db.migrate"]
+    restart: "no"
+    logging: *logging
+
+  api:
+    build: ../backend
+    image: telar-backend
+    restart: unless-stopped
+    env_file: ../backend/.env
+    environment:
+      # Forzado acá, no en el .env: en producción la app se niega a arrancar
+      # con secretos vacíos o credenciales de desarrollo.
+      ENV: production
+      MEDIA_STORAGE_DIR: /app/data/media
+      # La API solo es alcanzable por el túnel (ver `ports`), así que este
+      # header lo pone Cloudflare y no se puede inventar desde afuera.
+      TRUSTED_CLIENT_IP_HEADER: CF-Connecting-IP
+    volumes:
+      - telar_media:/app/data/media
+    # Solo localhost, para `curl localhost:8000/health` desde el servidor.
+    # De afuera se entra únicamente por el túnel.
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # Tiempo para que el dispatcher termine lo que tiene en vuelo al apagar.
+    stop_grace_period: 30s
+    logging: *logging
+
+  # HTTPS público sin abrir puertos ni configurar certificados. En el
+  # dashboard de Cloudflare, el hostname público del túnel apunta a
+  # http://api:8000 (ver docs/DEPLOY.md).
+  tunnel:
+    image: cloudflare/cloudflared:${CLOUDFLARED_VERSION:-latest}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Falta CLOUDFLARE_TUNNEL_TOKEN en backend/.env}
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  telar_media:

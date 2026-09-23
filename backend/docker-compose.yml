@@ -12,16 +12,30 @@ services:
       POSTGRES_DB: telar
     volumes:
       - telar_db:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+    # Solo desde esta máquina: publicarlo en 0.0.0.0 lo deja abierto a
+    # internet (Docker se salta el firewall del host).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U telar"]
       interval: 5s
       retries: 10
 
+  # Aplica las migraciones pendientes y termina; la API arranca después.
+  migrate:
+    build: .
+    image: telar-backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://telar:telar@db:5432/telar
+    command: ["python", "-m", "telar.db.migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: .
+    image: telar-backend
     restart: unless-stopped
     env_file: .env
     environment:
@@ -30,10 +44,10 @@ services:
     volumes:
       - telar_media:/app/data/media
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   # Opcional: expone el webhook por HTTPS sin abrir puertos ni tener IP fija.
   # Sirve tanto para desarrollo como para producción -- ver README, sección
