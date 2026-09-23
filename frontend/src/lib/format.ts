@@ -1,4 +1,3 @@
-/** Helpers de presentación. Nada de lógica de negocio acá. */
 
 const RELATIVE = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
 
@@ -45,7 +44,6 @@ export function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
 }
 
-/** Encabezado de separador dentro del hilo */
 export function dayLabel(iso: string): string {
   const date = new Date(iso)
   const now = new Date()
@@ -76,10 +74,7 @@ export function initials(name: string | null | undefined, fallback = '?'): strin
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-/**
- * Un tono estable por contacto. Es decorativo: la información de estado
- * nunca se codifica solo con el color del avatar.
- */
+/** Tono estable por contacto. Decorativo: nunca es el único indicador de estado. */
 const AVATAR_TONES = [
   'bg-[#FF6B4A]/14 text-[#A8351A] dark:text-[#FFB4A2]',
   'bg-[#E8A33D]/16 text-[#8A5A12] dark:text-[#F0C27B]',

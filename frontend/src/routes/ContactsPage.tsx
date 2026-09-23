@@ -38,7 +38,6 @@ export function ContactsPage() {
 
   const contacts = React.useMemo(() => data?.pages.flat(), [data])
 
-  /* Para poder saltar del contacto a su conversación sin buscarla a mano. */
   const { data: conversations } = useQuery({
     queryKey: queryKeys.conversations.all(accountId!),
     queryFn: () => getConversations(accountId!),
@@ -51,9 +50,7 @@ export function ContactsPage() {
     return map
   }, [conversations])
 
-  /* El filtrado ahora lo hace el backend (?q=: nombre, teléfono o email, en
-     TODOS los contactos, no solo en las páginas ya cargadas). El wa_id no lo
-     busca la API todavía, así que ese campo queda fuera de la búsqueda. */
+  /* La API todavía no busca por wa_id. */
   const visible = contacts ?? []
 
   if (!accountId) return null

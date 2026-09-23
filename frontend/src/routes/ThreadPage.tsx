@@ -69,13 +69,11 @@ export function ThreadPage() {
     queryKey: queryKeys.conversation(accountId!, conversationId!),
     queryFn: () => getConversationDetail(accountId!, conversationId!),
     enabled: !!accountId && !!conversationId,
-    // Igual que en InboxLayout: con historial viejo ya cargado, un refresco
-    // de la ventana reciente puede correr el límite y dejar un hueco.
+    // Con historial viejo cargado, un refresco puede correr el límite y dejar un hueco.
     refetchInterval: olderMessages.length === 0 ? 5000 : false,
   })
 
-  /* Cada conversación arranca su propio historial: sin esto, cambiar de hilo
-     mostraría mensajes viejos de la conversación anterior. */
+  /* Sin esto, cambiar de hilo mostraría mensajes de la conversación anterior. */
   React.useEffect(() => {
     setOlderMessages([])
     setHasMoreOlder(null)
@@ -97,8 +95,7 @@ export function ThreadPage() {
         before: oldest.created_at,
         limit: PAGE_SIZE,
       })
-      // El contenido nuevo se inserta arriba: sin esto, la lista "salta" y
-      // se pierde de vista lo que se estaba leyendo.
+      // El contenido se inserta arriba: sin esto, la lista "salta".
       scrollAdjustRef.current = scrollRef.current?.scrollHeight ?? null
       setOlderMessages((prev) => [...older.messages, ...prev])
       setHasMoreOlder(older.messages.length >= PAGE_SIZE)
@@ -121,8 +118,6 @@ export function ThreadPage() {
   const role = accountId ? roleForAccount(accountId) : null
   const canOverride = isElevated(role)
 
-  /* Los nombres del equipo solo hacen falta si podés reasignar o si querés
-     saber quién tiene la conversación. */
   const { data: members } = useQuery({
     queryKey: queryKeys.members(accountId!),
     queryFn: () => getMembers(accountId!),
@@ -172,9 +167,8 @@ export function ThreadPage() {
 
   const sw = serviceWindow(conv.last_contact_message_at)
 
-  /* El backend solo exige ser dueño de la conversación (o rol elevado)
-     cuando ya está 'open'; en 'bot'/'pending'/'resolved' cualquiera de la
-     cuenta puede reabrir con una plantilla. */
+  /* El backend solo exige ser dueño (o rol elevado) con la conversación 'open';
+     en otro estado cualquiera de la cuenta puede reabrir con una plantilla. */
   const canSendTemplate = conv.status !== 'open' || isMine || canOverride
 
   async function handleSend(text: string) {
@@ -200,8 +194,6 @@ export function ThreadPage() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col bg-background">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4">
-          {/* En mobile la lista y el hilo se turnan la pantalla entera (ver
-              InboxLayout) -- esto es lo que devuelve a la lista. */}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -219,16 +211,13 @@ export function ThreadPage() {
             </p>
           </div>
 
-          {/* En xl el panel derecho ya muestra el estado; acá solo estorba y
-              le come el ancho al nombre del contacto. */}
+          {/* En xl el panel derecho ya muestra el estado. */}
           <StatusBadge
             status={conv.status}
             size="sm"
             className="hidden shrink-0 sm:inline-flex xl:hidden"
           />
 
-          {/* Por debajo de xl el aside de datos del contacto está oculto del
-              todo -- este botón le da esa información un lugar al que ir. */}
           <Button
             variant="ghost"
             size="icon-sm"

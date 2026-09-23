@@ -1,11 +1,4 @@
-"""
-Grafo del agente.
-
-build_graph() compila el JSON de bot_versions.graph si la cuenta tiene un
-bot configurado (ver agent/compiler.py); si no, usa este grafo mínimo por
-defecto -- un solo nodo con todas las tools, el mismo comportamiento que
-tenía el v0 escrito a mano.
-"""
+"""Grafo del agente: el bot de la cuenta si tiene uno, si no un nodo único con todas las tools."""
 
 from __future__ import annotations
 

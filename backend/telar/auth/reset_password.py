@@ -1,9 +1,5 @@
-"""
-Resetea la contraseña de un usuario existente, por email. Complemento de
-create_user.py para cuando la contraseña se pierde (no hay flujo de
-recuperación por email todavía).
+"""Resetea la contraseña de un usuario por email.
 
-Uso:
     python -m telar.auth.reset_password <email>
 """
 

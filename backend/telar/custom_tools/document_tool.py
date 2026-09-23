@@ -1,16 +1,4 @@
-"""
-Tool "document": un único documento de texto plano que el agente puede leer,
-sin embeddings ni proveedor de LLM externo -- pensada para el caso que no
-justifica una base de conocimiento (kb/, pgvector, requiere OPENAI_API_KEY
-tanto para ingestar como para cada consulta, ver llm/embeddings.py).
-
-El texto entero vive en tools.config.text (columna jsonb, ver
-custom_tools/service.py para el tope de tamaño). La "búsqueda" es un
-substring case-insensitive en Python, no similitud semántica -- alcanza y
-sobra para un documento de referencia; para algo más grande donde hace
-falta encontrar la sección relevante entre muchas, la base de conocimiento
-sigue siendo la herramienta correcta.
-"""
+"""Tool "document": un texto plano con búsqueda por substring, sin embeddings."""
 
 from __future__ import annotations
 
@@ -34,7 +22,7 @@ class DocumentArgs(BaseModel):
 
 
 def build_document_tool(row: dict[str, Any], secret: dict[str, Any]) -> StructuredTool:
-    del secret  # esta tool no tiene secretos: no llama a nada externo
+    del secret
     config = row["config"]
     text: str = config.get("text") or ""
     max_chars = int(config.get("max_chars") or _DEFAULT_MAX_CHARS)

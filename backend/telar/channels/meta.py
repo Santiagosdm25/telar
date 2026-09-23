@@ -1,9 +1,4 @@
-"""
-Adaptador de WhatsApp Cloud API.
-
-Es el único archivo del proyecto que conoce el formato de Meta. Todo lo que
-sale de aquí es InboundMessage; todo lo que entra es OutboundMessage.
-"""
+"""Adaptador de WhatsApp Cloud API: único módulo que conoce el formato de Meta."""
 
 from __future__ import annotations
 
@@ -57,8 +52,6 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         self.verify_token = verify_token
         self.base = f"https://graph.facebook.com/{api_version}"
 
-    # ---------------------------------------------------------------- entrada
-
     def verify_webhook(self, params: dict[str, str]) -> str | None:
         if (
             params.get("hub.mode") == "subscribe"
@@ -68,12 +61,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         return None
 
     def verify_signature(self, raw_body: bytes, signature_header: str | None) -> bool:
-        """
-        Sin esta validación tu endpoint es público y cualquiera puede hacer
-        hablar a tu bot. No la desactives ni en desarrollo.
-        """
-        # Sin secreto, el HMAC se calcularía con clave vacía y cualquiera
-        # podría firmar: se rechaza todo en vez de aceptar todo.
+        # Sin secreto el HMAC usaría clave vacía y cualquiera podría firmar.
         if not self.app_secret:
             return False
         if not signature_header or not signature_header.startswith("sha256="):
@@ -92,7 +80,6 @@ class MetaWhatsAppAdapter(ChannelAdapter):
             for change in entry.get("changes", []):
                 value = change.get("value", {})
 
-                # Los webhooks de estado (sent/delivered/read) no son mensajes.
                 if "messages" not in value:
                     continue
 
@@ -105,9 +92,8 @@ class MetaWhatsAppAdapter(ChannelAdapter):
                     try:
                         msg = self._parse_one(raw, profiles, account_id, inbox_id)
                     except Exception:
-                        # Un campo faltante/con formato nuevo en un solo
-                        # mensaje no debe tumbar el lote entero -- Meta
-                        # agrupa varios mensajes por webhook.
+                        # Meta agrupa varios mensajes por webhook: uno malformado
+                        # no debe tumbar el lote.
                         log.exception(
                             "no se pudo parsear un mensaje del lote (id=%s), se omite",
                             raw.get("id"),
@@ -118,12 +104,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         return out
 
     def parse_statuses(self, payload: dict[str, Any]) -> list[dict[str, str]]:
-        """
-        Actualizaciones de estado de mensajes salientes -- mismo formato de
-        webhook que parse(), pero en value.statuses en vez de
-        value.messages. No son InboundMessage: son un UPDATE puntual sobre
-        un mensaje que ya mandamos (ver repositories.update_message_delivery_status).
-        """
+        """Estados de entrega (value.statuses) de mensajes salientes."""
         out: list[dict[str, str]] = []
         for entry in payload.get("entry", []):
             for change in entry.get("changes", []):
@@ -213,8 +194,6 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         log.info("tipo de mensaje no soportado: %s", kind)
         return InboundMessage(**common, type=MessageType.UNSUPPORTED)
 
-    # ---------------------------------------------------------------- salida
-
     async def send(
         self,
         message: OutboundMessage,
@@ -223,21 +202,13 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         phone_number_id: str | None = None,
         access_token: str | None = None,
     ) -> SendResult:
-        """
-        `phone_number_id`/`access_token` permiten enviar desde un inbox
-        específico de la cuenta en vez del número global de .env -- ver
-        resolve_inbox_credentials(). Si no se pasan, usa los del adapter
-        (instalación de un solo número, comportamiento de siempre).
-        """
+        """Sin phone_number_id/access_token usa las credenciales globales del adapter."""
         phone_number_id = phone_number_id or self.phone_number_id
         access_token = access_token or self.access_token
         body = self._build_body(message, to)
         url = f"{self.base}/{phone_number_id}/messages"
 
-        # SendResult modela el "no se pudo enviar" (ok=False, error_code,
-        # retryable) justamente para no dejar que un fallo de transporte
-        # (red, TLS, token vacío -> header inválido) escape como excepción
-        # sin atrapar hacia quien llama.
+        # Los fallos de transporte se devuelven como SendResult(ok=False), no como excepción.
         try:
             async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.post(
@@ -311,9 +282,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
     ) -> None:
         phone_number_id = phone_number_id or self.phone_number_id
         access_token = access_token or self.access_token
-        # Marcar como leído es un efecto secundario, no el turno del agente
-        # -- un token vacío/vencido acá no debe tumbar worker/dispatcher.py
-        # (mismo motivo que ya tiene el try/except de send(), más abajo).
+        # Efecto secundario: un token vencido no debe tumbar el turno.
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 await client.post(
@@ -329,14 +298,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
             log.warning("no se pudo marcar como leído %s: %s", channel_message_id, e)
 
     async def download_media(self, media: MediaRef, *, access_token: str | None = None) -> MediaRef:
-        """
-        La URL que devuelve Meta expira en minutos. Descarga apenas llegue
-        el mensaje, no cuando el agente lo necesite.
-
-        Si algo falla acá (Meta caída, media ya vencida, archivo gigante),
-        se propaga: quien llama decide si vale la pena perder el mensaje
-        completo por eso o solo quedarse sin el archivo (ver pipeline.py).
-        """
+        """La URL de Meta expira en minutos: descargar al recibir. Los errores se propagan."""
         if not media.external_id:
             return media
 
@@ -359,10 +321,7 @@ class MetaWhatsAppAdapter(ChannelAdapter):
         media.mime_type = info.get("mime_type", media.mime_type)
         media.size_bytes = len(binary.content)
         await media_storage.save(media.external_id, binary.content)
-        # No es una URL servible tal cual (el endpoint real está scopeado
-        # por cuenta/conversación, ver conversations/router.py
-        # get_message_media) -- este campo es solo la señal de "ya está
-        # guardado" que el frontend chequea antes de intentar traerlo.
+        # Marca de "ya guardado" para el frontend; no es una URL servible.
         media.storage_url = f"stored:{media.external_id}"
         return media
 
@@ -379,15 +338,7 @@ def default_adapter() -> MetaWhatsAppAdapter:
 
 
 async def resolve_inbox_credentials(inbox_id: UUID) -> tuple[str, str]:
-    """
-    (phone_number_id, access_token) a usar para enviar por este inbox.
-
-    Si el inbox no tiene credenciales propias todavía -- el caso de una
-    instalación de un solo número que sigue operando 100% desde .env, o de
-    un inbox creado antes de que existiera este CRUD -- cae a las
-    variables de entorno globales. Así ninguna instalación existente se
-    rompe al adoptar inboxes con credenciales propias.
-    """
+    """(phone_number_id, access_token) del inbox; sin credenciales propias, usa las de .env."""
     s = settings()
     inbox = await repo.get_inbox(inbox_id)
 

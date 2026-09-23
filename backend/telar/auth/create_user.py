@@ -1,9 +1,5 @@
-"""
-Bootstrap de un usuario. v0 no tiene API de administración: se crea a mano,
-igual que cuenta, inbox y base de conocimiento (ver README). Vincularlo a
-una cuenta con un rol es un INSERT INTO account_users aparte.
+"""Crea un usuario (la vinculación a una cuenta va aparte, en account_users).
 
-Uso:
     python -m telar.auth.create_user <email> <nombre> [--superadmin]
 """
 

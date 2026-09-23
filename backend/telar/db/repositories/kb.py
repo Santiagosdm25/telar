@@ -19,11 +19,7 @@ __all__ = [
 
 
 def _to_vector_literal(embedding: list[float]) -> str:
-    """
-    psycopg no trae adaptador para el tipo vector de pgvector: se serializa
-    a texto y se castea en la query con ::vector. repr() de un float en
-    Python siempre usa punto decimal, sin importar el locale del sistema.
-    """
+    """psycopg no adapta el tipo vector: se serializa a texto y se castea con ::vector."""
     return "[" + ",".join(repr(x) for x in embedding) + "]"
 
 
@@ -49,10 +45,7 @@ async def insert_kb_chunks(
 async def search_kb_chunks(
     account_id: UUID, embedding: list[float], limit: int = 5
 ) -> list[dict]:
-    """
-    Similitud coseno contra kb_chunks de todas las bases de conocimiento de
-    la cuenta, usando el índice hnsw (kb_chunks_vec) de la migración.
-    """
+    """Similitud coseno sobre todas las bases de la cuenta (índice hnsw)."""
     vec = _to_vector_literal(embedding)
     pool = await get_pool()
     async with pool.connection() as conn:
@@ -109,7 +102,6 @@ async def get_knowledge_base(knowledge_base_id: UUID) -> dict | None:
 
 
 async def delete_knowledge_base(knowledge_base_id: UUID) -> None:
-    """kb_chunks se borra en cascada (ON DELETE CASCADE en la migración)."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute("DELETE FROM knowledge_bases WHERE id = %s", (knowledge_base_id,))

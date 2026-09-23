@@ -1,9 +1,5 @@
-"""
-Contratos núcleo del proyecto.
-
-Regla que no se rompe: ni el grafo del agente ni la lógica de negocio ven
-nunca un payload crudo de Meta o de Chatwoot. Todo entra como InboundMessage
-y sale como OutboundMessage. Cambiar de canal = escribir un adaptador nuevo.
+"""Contratos núcleo: el grafo y la lógica de negocio solo ven InboundMessage/OutboundMessage,
+nunca un payload crudo del canal.
 """
 
 from __future__ import annotations
@@ -15,10 +11,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-
-# --------------------------------------------------------------------------
-# Enumeraciones
-# --------------------------------------------------------------------------
 
 class Channel(str, Enum):
     WHATSAPP = "whatsapp"
@@ -34,9 +26,9 @@ class MessageType(str, Enum):
     DOCUMENT = "document"
     LOCATION = "location"
     CONTACTS = "contacts"
-    INTERACTIVE = "interactive"   # respuesta a botón o lista
-    TEMPLATE = "template"         # solo salida, fuera de ventana de 24h
-    UNSUPPORTED = "unsupported"   # sticker, reacción, lo que Meta agregue mañana
+    INTERACTIVE = "interactive"
+    TEMPLATE = "template"
+    UNSUPPORTED = "unsupported"   # sticker, reacción, tipos nuevos de Meta
 
 
 class SenderType(str, Enum):
@@ -47,13 +39,8 @@ class SenderType(str, Enum):
 
 
 class ConversationStatus(str, Enum):
-    """
-    Máquina de estados de la conversación. Ver state.py para las transiciones.
-
-    BOT      -> la IA responde
-    PENDING  -> se pidió humano, está en cola del equipo, la IA ya no responde
-    OPEN     -> asignada a un agente humano, la IA solo persiste mensajes
-    RESOLVED -> cerrada; el próximo mensaje entrante la reabre en BOT
+    """BOT: responde la IA. PENDING: en cola del equipo. OPEN: asignada a un humano.
+    RESOLVED: el próximo mensaje entrante la reabre en BOT.
     """
     BOT = "bot"
     PENDING = "pending"
@@ -69,22 +56,14 @@ class DeliveryStatus(str, Enum):
     FAILED = "failed"
 
 
-# --------------------------------------------------------------------------
-# Piezas compartidas
-# --------------------------------------------------------------------------
-
 class MediaRef(BaseModel):
-    """
-    Referencia a un archivo. En la entrada llega solo external_id: hay que
-    descargarlo con el token del canal antes de que expire (Meta lo borra
-    a los 30 días, y la URL firmada dura minutos).
-    """
+    """En la entrada solo trae external_id: descargar enseguida, la URL de Meta dura minutos."""
     external_id: str | None = None
     mime_type: str | None = None
     filename: str | None = None
     sha256: str | None = None
     size_bytes: int | None = None
-    storage_url: str | None = None   # se llena tras descargar
+    storage_url: str | None = None
     caption: str | None = None
 
 
@@ -96,17 +75,13 @@ class Location(BaseModel):
 
 
 class ContactRef(BaseModel):
-    """Identidad del cliente tal como la reporta el canal."""
-    external_id: str            # wa_id en WhatsApp
+    external_id: str
     name: str | None = None
     phone: str | None = None
 
 
 class TemplateRef(BaseModel):
-    """
-    Plantilla aprobada por Meta. Obligatoria para iniciar conversación o para
-    responder fuera de la ventana de 24 horas.
-    """
+    """Plantilla aprobada por Meta; obligatoria fuera de la ventana de 24 horas."""
     name: str
     language: str = "es"
     components: list[dict[str, Any]] = Field(default_factory=list)
@@ -117,18 +92,8 @@ class QuickReply(BaseModel):
     title: str   # Meta trunca en 20 caracteres
 
 
-# --------------------------------------------------------------------------
-# Mensaje entrante
-# --------------------------------------------------------------------------
-
 class InboundMessage(BaseModel):
-    """
-    Un mensaje ya normalizado, listo para el worker.
-
-    channel_message_id es la llave de deduplicación: Meta reintenta el webhook
-    y sin el índice único sobre (inbox_id, channel_message_id) el bot responde
-    dos veces al mismo mensaje.
-    """
+    """Mensaje normalizado. channel_message_id deduplica los reintentos del webhook de Meta."""
     id: UUID = Field(default_factory=uuid4)
     channel_message_id: str
 
@@ -142,7 +107,7 @@ class InboundMessage(BaseModel):
     text: str | None = None
     media: MediaRef | None = None
     location: Location | None = None
-    interactive_reply_id: str | None = None   # id del botón que tocó
+    interactive_reply_id: str | None = None
     reply_to_channel_message_id: str | None = None
 
     sent_at: datetime
@@ -163,15 +128,8 @@ class InboundMessage(BaseModel):
         return f"[{self.type.value} recibido]"
 
 
-# --------------------------------------------------------------------------
-# Mensaje saliente
-# --------------------------------------------------------------------------
-
 class OutboundMessage(BaseModel):
-    """
-    Lo que el agente o un humano quiere enviar. El adaptador del canal lo
-    traduce al formato de la API concreta; a este nivel no existe Meta.
-    """
+    """Lo que el agente o un humano quiere enviar; el adaptador lo traduce a la API del canal."""
     id: UUID = Field(default_factory=uuid4)
     conversation_id: UUID
     sender_type: SenderType = SenderType.BOT
@@ -191,10 +149,6 @@ class OutboundMessage(BaseModel):
         return self.type is MessageType.TEMPLATE
 
 
-# --------------------------------------------------------------------------
-# Resultado del envío
-# --------------------------------------------------------------------------
-
 class SendResult(BaseModel):
     ok: bool
     channel_message_id: str | None = None
@@ -204,15 +158,8 @@ class SendResult(BaseModel):
     retryable: bool = False
 
 
-# --------------------------------------------------------------------------
-# Puerto del canal
-# --------------------------------------------------------------------------
-
 class ChannelAdapter:
-    """
-    Interfaz que implementan meta_direct y chatwoot. Nada más del sistema
-    conoce las APIs externas.
-    """
+    """Puerto que implementan los adaptadores de canal."""
 
     channel: Channel
 
@@ -224,7 +171,6 @@ class ChannelAdapter:
         raise NotImplementedError
 
     def parse(self, payload: dict[str, Any]) -> list[InboundMessage]:
-        """Un webhook puede traer varios mensajes y también solo estados."""
         raise NotImplementedError
 
     async def send(self, message: OutboundMessage, to: ContactRef) -> SendResult:

@@ -1,10 +1,4 @@
-"""
-Bandeja de entrada: ver, tomar y responder conversaciones como agente
-humano, y contactos/informes básicos.
-
-Nombre del paquete elegido para no confundir con la tabla `inboxes`
-(los números de WhatsApp configurados, un concepto distinto).
-"""
+"""Bandeja de entrada: conversaciones atendidas por agentes humanos, contactos e informes."""
 
 from __future__ import annotations
 
@@ -199,17 +193,14 @@ async def assign_conversation(
 
     try:
         if conv.status is ConversationStatus.OPEN:
-            # No es un cambio de estado, solo de asignado: no pasa por
-            # la máquina de estados.
+            # Cambia solo el asignado, no el estado.
             conv.assignee_id = target_id
         else:
             st.transition(conv, ConversationStatus.OPEN, assignee_id=target_id)
     except st.InvalidTransition as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
 
-    # Condición sobre el estado leído al principio -- si otra request ya
-    # la tomó en el medio (dos agentes casi simultáneos), esto pierde en
-    # vez de pisar silenciosamente esa asignación.
+    # Condicionado al estado leído: si otro agente la tomó en el medio, esta request pierde.
     ok = await repo.save_conversation_if_unchanged(conv, expected_status, expected_assignee_id)
     if not ok:
         raise HTTPException(status.HTTP_409_CONFLICT, "Alguien ya tomó esta conversación, recargá")
@@ -315,15 +306,9 @@ _TEMPLATE_PLACEHOLDER = re.compile(r"\{\{(\d+)\}\}")
 
 
 def _substitute_template_params(components: list[dict], params: dict[str, str]) -> list[dict]:
-    """
-    Traduce los componentes guardados (con `text` de referencia, ej. "Hola
-    {{1}}") al formato que Meta espera para el envío: un `parameters` por
-    componente, en el orden de sus placeholders. Un componente sin
-    placeholders se omite -- Meta no necesita mandarlo de vuelta.
+    """Convierte los componentes guardados al formato de envío de Meta.
 
-    Rechaza con 422 si falta un valor para algún placeholder: mandar la
-    plantilla con "{{1}}" literal a un cliente real es peor que no
-    mandarla.
+    422 si falta un valor: no se manda "{{1}}" literal a un cliente.
     """
     substituted: list[dict] = []
     for component in components:
@@ -351,11 +336,7 @@ async def send_template_message(
     body: SendTemplateRequest,
     membership: Membership = Depends(require_role()),
 ) -> MessageResponse:
-    """
-    A diferencia de /messages, esto ignora deliberadamente window_is_open:
-    una plantilla aprobada por Meta es exactamente lo que existe para poder
-    escribirle a un contacto fuera de (o para reabrir) la ventana de 24h.
-    """
+    """Ignora window_is_open a propósito: las plantillas existen para escribir fuera de ella."""
     conv = await _get_conversation_or_404(account_id, conversation_id)
 
     is_owner = conv.assignee_id == membership.user_id
@@ -376,9 +357,7 @@ async def send_template_message(
         language=template["language"],
         components=_substitute_template_params(template["components"], body.params),
     )
-    # _build_body() (channels/meta.py) prioriza `template` sobre `text` -- el
-    # texto acá es solo para que el mensaje se vea en el hilo, nunca se manda
-    # como body a Meta cuando hay una plantilla.
+    # Con `template`, Meta no recibe este texto; solo sirve para mostrarlo en el hilo.
     display_text = f"[plantilla] {template['name']}"
     out = OutboundMessage(
         conversation_id=conv.id,
@@ -420,12 +399,7 @@ async def get_message_media(
     message_id: UUID,
     membership: Membership = Depends(require_role()),
 ) -> Response:
-    """
-    Sirve el archivo ya descargado de Meta (ver worker/pipeline.py y
-    media/storage.py). No es público: exige pertenecer a la cuenta, igual
-    que leer el resto del hilo. Las URLs firmadas de Meta expiran en
-    minutos, por eso el archivo pasa por acá y no se linkea directo.
-    """
+    """Sirve el archivo descargado de Meta, con el mismo control de acceso que el hilo."""
     await _get_conversation_or_404(account_id, conversation_id)
 
     msg = await repo.get_message(message_id)
@@ -493,10 +467,7 @@ async def create_template(
     body: CreateTemplateRequest,
     membership: Membership = Depends(require_role(AccountRole.ADMINISTRATOR)),
 ) -> TemplateResponse:
-    """
-    Registra una plantilla ya aprobada en Meta Business Manager -- Telar no
-    la crea en Meta, solo guarda cuál usar y con qué componentes.
-    """
+    """Registra una plantilla ya aprobada en Meta; Telar no la crea allá."""
     template_id = await repo.insert_message_template(
         account_id, body.name, body.language, body.components
     )

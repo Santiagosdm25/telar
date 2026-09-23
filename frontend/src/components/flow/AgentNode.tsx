@@ -7,12 +7,8 @@ import { cn } from '@/lib/utils'
 const handleBase = '!size-3 !border-2 !border-background transition-transform hover:!scale-125'
 
 /**
- * Agente del flujo. Dos puntos de conexión:
- * - entrada: a la izquierda en el principal (llega WhatsApp), arriba en un
- *   sub-agente (lo conecta el principal, igual que a una herramienta)
- * - abajo: arrastrar hasta lo que este agente puede usar — herramientas y,
- *   en el principal, sub-agentes. Nada de lo de abajo corre siempre: el
- *   agente decide en cada turno si lo usa.
+ * Entrada a la izquierda en el principal y arriba en un sub-agente; desde abajo
+ * se conecta lo que el agente puede usar (herramientas y sub-agentes).
  */
 export function AgentNode({ data, selected }: NodeProps & { data: AgentNodeData }) {
   const isMain = data.role === 'main'

@@ -47,10 +47,7 @@ export function InboxLayout() {
   const debouncedQuery = useDebouncedValue(query.trim(), 300)
   const searchRef = React.useRef<HTMLInputElement>(null)
 
-  /**
-   * La API pagina con limit/offset y su default son 50. Sin esto la bandeja
-   * se cortaba en la primera página sin ningún aviso.
-   */
+  /** La API pagina con limit/offset (default 50). */
   const {
     data,
     isLoading,
@@ -71,10 +68,8 @@ export function InboxLayout() {
     getNextPageParam: (lastPage, allPages) =>
       (lastPage?.length ?? 0) < PAGE_SIZE ? undefined : allPages.length * PAGE_SIZE,
     enabled: !!accountId,
-    // Un refresco de fondo vuelve a pedir TODAS las páginas cargadas, así que
-    // con varias páginas se espacía en vez de darle la misma cadencia que a la
-    // primera -- pero nunca se apaga del todo, para no perder conversaciones
-    // nuevas de vista mientras un agente se queda scrolleado más abajo.
+    // El refresco vuelve a pedir todas las páginas cargadas: con varias se espacía,
+    // pero nunca se apaga para no perder conversaciones nuevas.
     refetchInterval: (query) => ((query.state.data?.pages.length ?? 1) > 1 ? 30000 : 8000),
   })
 
@@ -101,8 +96,6 @@ export function InboxLayout() {
     resolved: stats?.resolved,
   }
 
-  /* El filtrado ahora lo hace el backend (?q=, busca en TODAS las
-     conversaciones, no solo en las páginas ya cargadas). */
   const visible = conversations ?? []
 
   /* Atajos: "/" busca, j/k recorren la lista sin sacar las manos del teclado. */
@@ -146,13 +139,11 @@ export function InboxLayout() {
       <section
         className={cn(
           'flex w-full shrink-0 flex-col border-r border-border bg-surface lg:w-[336px]',
-          // En mobile la lista y el hilo ocupan la pantalla entera por
-          // turnos -- con un hilo abierto, la lista se oculta del todo.
+          // En mobile la lista y el hilo se turnan la pantalla entera.
           conversationId && 'hidden lg:flex',
         )}
         aria-label="Lista de conversaciones"
       >
-        {/* Encabezado */}
         <div className="flex h-14 items-center gap-2 px-4">
           <MobileMenuButton />
           <h1 className="text-[15px] font-semibold tracking-tight">Conversaciones</h1>
@@ -172,7 +163,6 @@ export function InboxLayout() {
           </Tooltip>
         </div>
 
-        {/* Búsqueda */}
         <div className="px-3 pb-2">
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -202,9 +192,6 @@ export function InboxLayout() {
           </div>
         </div>
 
-        {/* Filtro por estado: desplegable en vez de fila de chips -- no
-            pesa cuando la lista es angosta y de todos modos solo se mira uno
-            a la vez. */}
         <div className="px-3 pb-2.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -250,7 +237,6 @@ export function InboxLayout() {
           </DropdownMenu>
         </div>
 
-        {/* Filtro por equipo */}
         {teams && teams.length > 0 && (
           <div className="flex items-center gap-2 px-3 pb-2.5">
             <label htmlFor="team-filter" className="text-[11.5px] font-medium text-muted-foreground">
@@ -272,7 +258,6 @@ export function InboxLayout() {
           </div>
         )}
 
-        {/* Lista */}
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
           {isLoading && <ListSkeleton />}
 
@@ -341,9 +326,6 @@ export function InboxLayout() {
         </div>
       </section>
 
-      {/* En mobile, el hilo (o el estado "elegí una conversación") solo se
-          muestra una vez que hay una conversación elegida -- si no, la
-          lista de arriba ya ocupa toda la pantalla. */}
       <div className={cn('flex min-w-0 flex-1', !conversationId && 'hidden lg:flex')}>
         <Outlet />
       </div>

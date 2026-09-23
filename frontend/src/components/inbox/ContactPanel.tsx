@@ -31,11 +31,7 @@ export function ContactPanel(props: ContactPanelProps) {
   )
 }
 
-/**
- * Mismos datos que ContactPanel, en un diálogo. Por debajo de xl el aside se
- * oculta del todo -- esto le da a esa información un lugar al que ir en vez
- * de desaparecer.
- */
+/** Mismos datos que ContactPanel, en un diálogo para pantallas por debajo de xl. */
 export function ContactInfoDialog({
   open,
   onOpenChange,
@@ -64,10 +60,7 @@ function ContactPanelBody({
   return (
     <>
       <div className="flex flex-col items-center gap-3 border-b border-border px-5 py-6 text-center">
-        {/* `name` va sin resolver a teléfono: initials() ya sabe caer a "?"
-            cuando no hay nombre. Pasarle contactName (que acá ya trae el
-            teléfono formateado como fallback) le hacía derivar "iniciales"
-            de dígitos, por ej. "+549 114 455 6677" -> "+6". */}
+        {/* Sin fallback a teléfono: initials() ya cae a "?" y con dígitos daría "+6". */}
         <ContactAvatar seed={conversation.contact_id} name={conversation.contact_name} size="xl" />
         <div className="min-w-0">
           <p className="truncate font-semibold">{contactName}</p>
@@ -79,7 +72,6 @@ function ContactPanelBody({
         <p className="text-xs text-muted-foreground">{statusHint(conversation.status)}</p>
       </div>
 
-      {/* Ventana de servicio: lo que decide si se puede escribir texto libre */}
       <div className="border-b border-border px-5 py-4">
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
           Ventana de 24 horas

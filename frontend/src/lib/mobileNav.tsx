@@ -1,11 +1,6 @@
 import * as React from 'react'
 
-/**
- * Estado de "el sidebar está abierto como drawer en mobile" -- vive acá
- * (no en Sidebar) porque quien lo abre es el botón de hamburguesa en el
- * header de cada página (InboxLayout, ContactsPage, etc.), varios
- * niveles por debajo de donde vive <Sidebar> en AccountLayout.
- */
+/** Estado del drawer mobile; vive acá porque lo abre el header de cada página, no <Sidebar>. */
 interface MobileNavContextValue {
   open: boolean
   setOpen: (open: boolean) => void

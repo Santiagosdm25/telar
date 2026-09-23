@@ -1,7 +1,4 @@
-"""
-Arma las tools configurables (http, sql, document) de una cuenta como
-BaseTool de LangChain, listas para sumarse a TOOLS antes de bind_tools().
-"""
+"""Construye las tools configurables de una cuenta como BaseTool de LangChain."""
 
 from __future__ import annotations
 
@@ -32,12 +29,11 @@ async def build_custom_tools(account_id: UUID) -> list[BaseTool]:
     for row in rows:
         builder = _BUILDERS.get(row["kind"])
         if builder is None:
-            continue  # kb/handoff son las tools fijas, no configurables
+            continue  # kb y handoff son tools fijas
 
         try:
             secret = decrypt_secret(row.get("secret_config"))
             tool = builder(row, secret)
-            # El constructor de flujos lo usa para mostrar cada tool con su tipo.
             tool.metadata = {**(tool.metadata or {}), "kind": row["kind"]}
             tools.append(tool)
         except Exception:

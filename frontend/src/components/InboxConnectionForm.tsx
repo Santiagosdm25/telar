@@ -11,15 +11,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import type { InboxResponse } from '@/types/api'
 
 /**
- * El CRUD de conexión de WhatsApp -- antes vivía duplicado en dos lugares:
- * InboxesTab.tsx (Configuración, en diálogos) e InboxConnectionPanel.tsx
- * (el panel del nodo de inicio en el flow builder, inline). Cada uno tenía
- * su propio TeamSelect y sus propios tres formularios (crear, editar,
- * rotar credenciales), con los mismos campos y las mismas mutaciones.
- *
- * Estos componentes son la única implementación: cada uno maneja su propio
- * estado y su propia mutación, y deja la "carcasa" (diálogo vs. panel
- * inline, y la fila de botones) a quien lo use, vía `renderActions`.
+ * Formularios de conexión de WhatsApp compartidos por Configuración y el lienzo.
+ * La carcasa (diálogo o panel) y los botones los pone quien los usa, vía `renderActions`.
  */
 
 interface FormActionsArgs {
@@ -64,8 +57,7 @@ export function CreateInboxForm({
   renderActions,
 }: {
   accountId: string
-  /** Un diálogo pasa su `open`: al cerrarse, el formulario se limpia. Un
-   *  panel siempre montado puede dejar el default (nunca se limpia solo). */
+  /** Con `open`, el formulario se limpia al cerrarse; sin él nunca se limpia solo. */
   open?: boolean
   helperText?: React.ReactNode
   successMessage?: string

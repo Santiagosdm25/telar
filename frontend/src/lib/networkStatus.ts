@@ -1,18 +1,11 @@
 /**
- * Estado de red global, alimentado directamente desde `apiFetch` (lib/api.ts)
- * -- es el único lugar por donde pasan todas las llamadas a la API, así que
- * es el punto correcto para detectar "no hay conexión con el servidor" sin
- * depender de que cada componente maneje su propio error de red.
- *
- * A propósito NO usa React Query ni contexto: es un store mínimo con
- * useSyncExternalStore, para que un fallo de red temprano (antes de que
- * cualquier provider esté montado) no se pierda.
+ * Estado de red global, alimentado desde `apiFetch`. Store con useSyncExternalStore
+ * (sin React Query ni contexto) para no perder fallos previos al montaje de los providers.
  */
 
 type Listener = () => void
 
-// Dos fallas seguidas, no una sola -- una request perdida aislada no
-// significa "sin conexión", pasa todo el tiempo con redes inestables.
+// Dos fallas seguidas: una request perdida aislada es normal en redes inestables.
 const OFFLINE_THRESHOLD = 2
 
 let consecutiveFailures = 0
@@ -23,8 +16,7 @@ function emit() {
   for (const listener of listeners) listener()
 }
 
-/** Llamar cuando `fetch()` devolvió una respuesta, sea cual sea su status
- * -- un 404/500 real del backend significa que la red anda perfecto. */
+/** Hubo respuesta, sea cual sea el status: la red anda. */
 export function reportApiSuccess() {
   consecutiveFailures = 0
   if (offline) {
@@ -33,8 +25,7 @@ export function reportApiSuccess() {
   }
 }
 
-/** Llamar solo cuando `fetch()` en sí tiró (sin respuesta del server):
- * DNS, conexión rechazada, timeout de red, CORS. */
+/** Solo cuando `fetch()` tiró sin respuesta del server. */
 export function reportApiNetworkFailure() {
   consecutiveFailures += 1
   const shouldBeOffline = consecutiveFailures >= OFFLINE_THRESHOLD

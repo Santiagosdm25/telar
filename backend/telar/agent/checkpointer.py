@@ -1,10 +1,4 @@
-"""
-El checkpointer de Postgres (memoria del agente vía LangGraph) compartido
-por todo el proceso -- antes vivía como atributo privado de Pipeline
-(worker/pipeline.py); se saca a un módulo aparte para que el chat de
-prueba (agent/router.py) use exactamente el mismo, en vez de abrir un
-segundo AsyncPostgresSaver contra el mismo pool.
-"""
+"""Checkpointer de Postgres de LangGraph, compartido por todo el proceso."""
 
 from __future__ import annotations
 

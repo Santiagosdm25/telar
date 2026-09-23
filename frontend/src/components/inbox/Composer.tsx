@@ -48,10 +48,7 @@ export function Composer({
 
   return (
     <div className="border-t border-border bg-surface px-4 py-3">
-      {/* La ventana de 24h se avisa antes de escribir, no después de que
-          Meta rechace el envío. El aviso completo (con el botón para mandar
-          una plantilla) vive en ThreadPage, arriba de este composer, porque
-          también aplica cuando la conversación está bloqueada. */}
+      {/* El aviso completo vive en ThreadPage: también aplica con la conversación bloqueada. */}
       {sw.open && sw.warning && (
         <p className="mb-2 flex items-center gap-1.5 px-1 text-[12px] text-status-pending">
           <Clock className="size-3.5" />

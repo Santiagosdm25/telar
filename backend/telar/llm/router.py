@@ -1,11 +1,4 @@
-"""
-Administración de proveedores LLM por cuenta -- conecta la tabla
-llm_providers (existía desde 001_init.sql, sin usar) con un CRUD real y con
-el compilador del grafo. Como máximo un proveedor por cuenta puede estar
-activo (ver db/repositories.py set_active_llm_provider); el que esté activo
-es el que usan los nodos "agent" del bot de esa cuenta -- si ninguno está
-activo, se sigue usando el modelo global por defecto (sin cambios).
-"""
+"""Proveedores LLM por cuenta; como máximo uno activo, que reemplaza al modelo global."""
 
 from __future__ import annotations
 
@@ -49,7 +42,7 @@ class UpdateLlmProviderRequest(BaseModel):
     name: str
     model: str
     base_url: str | None = None
-    api_key: str | None = None  # None = no tocar la key guardada
+    api_key: str | None = None  # None = conservar la key guardada
 
 
 class DiscoverModelsRequest(BaseModel):
@@ -63,9 +56,7 @@ class DiscoverModelsResponse(BaseModel):
 
 
 def _validate_base_url(base_url: str | None) -> None:
-    """Mismo guard SSRF que las tools HTTP y discover-models -- sin esto, un
-    administrator de cuenta podía guardar un base_url apuntando a la red
-    interna de la plataforma y usarlo en cada turno del bot de su cuenta."""
+    """Guarda SSRF: sin esto un administrator podría apuntar base_url a la red interna."""
     if base_url is None:
         return
     try:
@@ -103,8 +94,7 @@ async def create_llm_provider(
     await repo.insert_audit_log(
         account_id, membership.user_id, "llm_provider.create", "llm_provider", provider_id
     )
-    # El primero de la cuenta queda activo: si no, el wizard crea un modelo
-    # que el bot nunca usa hasta que alguien aprieta "Activar".
+    # El primero de la cuenta queda activo.
     is_active = False
     if await repo.get_active_llm_provider(account_id) is None:
         await repo.set_active_llm_provider(account_id, provider_id)

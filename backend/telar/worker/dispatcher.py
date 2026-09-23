@@ -1,13 +1,7 @@
-"""
-Frontera asíncrona entre el webhook y el agente.
+"""Frontera asíncrona entre el webhook y el agente.
 
-El buffer de debounce vive en Postgres (inbound_message_buffer), no en
-memoria: submit() persiste el mensaje ANTES de que el webhook devuelva 200
-a Meta, así que un crash del proceso entre esa respuesta y que el lote
-termine de procesarse no pierde nada -- lo que haya quedado sin procesar
-se retoma al arrancar de nuevo (ver recover_pending()). El temporizador de
-debounce en sí (asyncio, en memoria) sí se pierde en un reinicio, pero eso
-solo corta la ventana de espera antes de tiempo, nunca el contenido.
+El buffer de debounce vive en Postgres para que un crash no pierda mensajes ya
+confirmados a Meta; recover_pending() retoma lo pendiente al arrancar.
 """
 
 from __future__ import annotations
@@ -36,17 +30,10 @@ class Dispatcher:
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def submit(self, msg: InboundMessage) -> None:
-        """
-        Persiste el mensaje antes de volver -- el handler del webhook
-        espera este await antes de responder 200 a Meta. El resto (esperar
-        el debounce, procesar) sigue en segundo plano.
-        """
+        """Persiste el mensaje antes de volver: el webhook espera esto antes de responder 200."""
         key = self._key(msg)
 
-        # Anti-abuso: un contacto que manda mensajes en bucle no debe poder
-        # disparar llamadas ilimitadas al LLM ni llenar el buffer. Contador
-        # compartido en Postgres (core/ratelimit.py) -- correcto sin
-        # importar cuántos procesos/réplicas lo compartan.
+        # Rate limit por contacto, compartido en Postgres entre réplicas.
         allowed = await ratelimit.allow(
             f"msg:{key}",
             settings().rate_limit_messages_per_window,
@@ -64,11 +51,7 @@ class Dispatcher:
     def _schedule(
         self, key: str, inbox_id: UUID, contact_external_id: str, delay: float
     ) -> None:
-        """
-        La gente manda varios mensajes seguidos, así que reiniciamos el
-        temporizador en cada uno y el agente ve la ráfaga completa como un
-        solo turno.
-        """
+        """Debounce: cada mensaje reinicia el temporizador y la ráfaga llega como un solo turno."""
         timer = self._timers.get(key)
         if timer and not timer.done():
             timer.cancel()
@@ -85,8 +68,7 @@ class Dispatcher:
             except asyncio.CancelledError:
                 return
 
-        # El lock garantiza orden por contacto: dos ráfagas seguidas no se
-        # procesan en paralelo y no se cruzan las respuestas.
+        # Orden por contacto: dos ráfagas seguidas no se procesan en paralelo.
         async with self._locks[key]:
             self._timers.pop(key, None)
             rows = await repo.get_buffered_messages(inbox_id, contact_external_id)
@@ -96,18 +78,13 @@ class Dispatcher:
             try:
                 await self._handler(batch)
             except Exception:
-                # No se borra el buffer: el próximo submit() de este
-                # contacto (o el barrido de arranque, si el proceso muere
-                # acá) lo vuelve a intentar.
+                # El buffer queda: el próximo submit() o el barrido de arranque lo reintenta.
                 log.exception("fallo procesando lote de %s, se reintenta", key)
                 return
             await repo.delete_buffered_messages([r["id"] for r in rows])
 
     async def recover_pending(self) -> None:
-        """
-        Se llama una vez al arrancar: retoma lo que un proceso anterior
-        dejó sin procesar en el buffer (crash, reinicio, OOM kill).
-        """
+        """Retoma lo que un proceso anterior dejó en el buffer."""
         keys = await repo.list_buffered_keys()
         for row in keys:
             inbox_id, contact_external_id = row["inbox_id"], row["contact_external_id"]

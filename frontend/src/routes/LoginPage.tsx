@@ -40,7 +40,6 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[1fr_1.05fr]">
-      {/* Formulario */}
       <div className="relative flex flex-col justify-center px-6 py-10 sm:px-12">
         <div className="absolute top-5 right-5">
           <ThemeToggle collapsed />
@@ -106,7 +105,6 @@ export function LoginPage() {
         </div>
       </div>
 
-      {/* Panel de marca */}
       <div className="relative hidden overflow-hidden border-l border-border bg-surface lg:block">
         <div className="weave-bg absolute inset-0 opacity-70" />
         <Logo

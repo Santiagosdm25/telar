@@ -1,12 +1,4 @@
-"""
-Cifrado del `secret_config` de una tool configurable.
-
-Módulo hoja a propósito: tanto `loader.py` (arma las tools en runtime) como
-`service.py` (las crea/edita desde el CLI o el router HTTP) lo necesitan, y
-`service.py` a su vez depende de `agent.graph_cache` -- que depende de
-`loader.py`. Si estas funciones vivieran en `service.py`, `loader.py`
-tendría que importarlo y se cerraría un ciclo de imports.
-"""
+"""Cifrado del `secret_config` de una tool. Módulo hoja para evitar un ciclo loader <-> service."""
 
 from __future__ import annotations
 

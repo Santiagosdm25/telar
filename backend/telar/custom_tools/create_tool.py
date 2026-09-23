@@ -1,9 +1,7 @@
-"""
-Bootstrap de una tool configurable (http/sql). v0 no tiene API de
-administración: se define en un archivo JSON local y se inserta a mano,
-igual que cuenta, inbox, base de conocimiento y usuario (ver README).
+"""Crea una tool configurable desde un JSON local.
 
-Formato del archivo:
+    python -m telar.custom_tools.create_tool <account_id> tool.json
+
     {
         "name": "consultar_pedido",
         "description": "Busca el estado de un pedido por su numero.",
@@ -16,11 +14,7 @@ Formato del archivo:
         }
     }
 
-El archivo tiene un secreto real en texto plano -- borralo después de
-correr el script.
-
-Uso:
-    python -m telar.custom_tools.create_tool <account_id> tool.json
+El archivo lleva el secreto en texto plano: borralo después.
 """
 
 from __future__ import annotations

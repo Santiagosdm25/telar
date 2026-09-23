@@ -1,18 +1,7 @@
-"""
-Limitador de tasa por ventana fija, respaldado en Postgres -- compartido
-entre todos los procesos/réplicas (a diferencia de una versión en memoria,
-que cada proceso llevaría por separado). Se usa tanto para el volumen de
-mensajes por contacto de WhatsApp (worker/dispatcher.py) como para los
-intentos de login (auth/router.py).
+"""Rate limit por ventana fija en Postgres, compartido entre réplicas.
 
-Ventana fija, no deslizante exacta: todos los eventos de la misma ventana
-de `window_seconds` cuentan juntos, calculada como
-floor(time.time() / window_seconds) * window_seconds. En el borde entre
-dos ventanas consecutivas se puede permitir hasta ~2x el límite por un
-instante -- trade-off aceptado a propósito porque es lo que permite que
-el chequeo sea una sola sentencia SQL atómica (INSERT ... ON CONFLICT),
-sin necesitar ningún lock explícito entre leer y escribir. Para anti-abuso
-(no un límite de facturación) es una aproximación estándar y suficiente.
+Ventana fija para que el chequeo sea un único INSERT ... ON CONFLICT atómico; en el
+borde entre ventanas puede dejar pasar hasta ~2x el límite.
 """
 
 from __future__ import annotations

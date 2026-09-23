@@ -38,11 +38,8 @@ interface Props {
 }
 
 /**
- * Habla con el bot tal cual está configurado -- mismo grafo, tools y
- * modelo que en producción -- sin tocar contactos ni conversaciones
- * reales (ver POST /bot/test-chat). session_id se genera acá y se
- * mantiene mientras el panel esté abierto; "Reiniciar" lo tira y arranca
- * una sesión de prueba nueva, sin memoria del intercambio anterior.
+ * Mismo grafo, tools y modelo que en producción, sin tocar contactos reales.
+ * session_id vive mientras el panel esté abierto; "Reiniciar" arranca uno nuevo.
  */
 export function TestChatPanel({ accountId, agentNames, onTrace, onClose }: Props) {
   const [sessionId, setSessionId] = React.useState<string | null>(null)
@@ -171,11 +168,7 @@ export function TestChatPanel({ accountId, agentNames, onTrace, onClose }: Props
   )
 }
 
-/**
- * "Qué pasó" en el turno, contado en orden. Se salta lo redundante: el
- * resultado de `delegar_*` es la misma respuesta del sub-agente, y el último
- * mensaje del principal es la respuesta que ya se ve arriba.
- */
+/** Traza del turno. Omite el resultado de `delegar_*` y el último mensaje del principal: ya se ven arriba. */
 function TraceView({ trace, agentNames }: { trace: TraceEvent[]; agentNames: Record<string, string> }) {
   const [open, setOpen] = React.useState(true)
   const name = (id: string) => agentNames[id] ?? id

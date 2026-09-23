@@ -4,14 +4,8 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * Sidebar que se expande al pasar el mouse (patrón "rail"): en desktop
- * vive colapsado a los iconos y se abre encima del contenido, sin
- * empujarlo -- así la bandeja no se reacomoda cada vez que el mouse
- * roza el borde. `pinned` lo deja abierto y en flujo, como un sidebar
- * clásico.
- *
- * Adaptado de un componente para Next.js: acá no hay `next/link`, los
- * links los arma quien usa esto con `NavLink` de react-router.
+ * Patrón "rail": colapsado a los iconos, se abre encima del contenido sin empujarlo.
+ * `pinned` lo deja abierto y en flujo.
  */
 
 export const RAIL_WIDTH = 60
@@ -32,7 +26,7 @@ export function useSidebar() {
 
 interface DesktopSidebarProps {
   pinned: boolean
-  /** Mantiene el panel abierto aunque el mouse se haya ido -- p. ej. mientras un dropdown (que se renderiza en un portal, fuera del panel) está abierto. */
+  /** Mantiene el panel abierto sin hover, p. ej. con un dropdown abierto (vive en un portal). */
   holdOpen?: boolean
   className?: string
   children: React.ReactNode
@@ -87,7 +81,7 @@ interface MobileSidebarProps {
   children: React.ReactNode
 }
 
-/** Drawer por debajo de `lg`. Lo abre el botón de hamburguesa del header de cada página (ver `MobileMenuButton`). */
+/** Drawer por debajo de `lg`. */
 export function MobileSidebar({ open, onOpenChange, className, children }: MobileSidebarProps) {
   React.useEffect(() => {
     if (!open) return
@@ -131,10 +125,7 @@ export function MobileSidebar({ open, onOpenChange, className, children }: Mobil
   )
 }
 
-/**
- * Texto que aparece al expandir. Queda siempre en el DOM (solo cambia la
- * opacidad) para que los iconos no salten de lugar mientras el ancho anima.
- */
+/** Siempre en el DOM (solo cambia la opacidad) para que los iconos no salten mientras anima el ancho. */
 export function SidebarLabel({
   className,
   children,

@@ -1,10 +1,4 @@
-"""
-Tool HTTP configurable por cuenta.
-
-Los argumentos que decide el LLM van como query params (GET/DELETE) o
-body JSON (POST/PUT/PATCH) -- nunca interpolados en la URL vía template,
-así se evita esa clase de problema por completo.
-"""
+"""Tool HTTP configurable. Los argumentos van como query params o body JSON, nunca en la URL."""
 
 from __future__ import annotations
 
@@ -42,12 +36,9 @@ def _is_blocked_ip(ip: str) -> bool:
 
 
 def check_url_is_safe(url: str) -> None:
-    """
-    Guarda SSRF: resuelve el host y rechaza si alguna IP resuelta cae en un
-    rango privado/loopback/link-local/reservado. Se corre en cada llamada,
-    no solo al guardar la config -- defensa básica contra DNS rebinding.
-    No pinnea la IP resuelta para la conexión real: límite documentado de
-    v0, no un transporte con IP pinneada.
+    """Guarda SSRF: rechaza hosts que resuelvan a rangos privados/loopback/reservados.
+
+    Se corre en cada llamada contra DNS rebinding, pero no pinnea la IP para la conexión.
     """
     parsed = urlparse(url)
     if parsed.scheme not in _ALLOWED_SCHEMES:
@@ -76,9 +67,7 @@ def build_http_tool(row: dict[str, Any], secret: dict[str, Any]) -> StructuredTo
     args_model = build_args_model(row["schema"], model_name=f"{row['name']}_args")
 
     async def _run(**kwargs: Any) -> str:
-        # ToolNode no atrapa excepciones arbitrarias por default (solo
-        # ToolInvocationError): sin este try/except, una API externa caída
-        # o una URL bloqueada tumbaría el turno completo del agente.
+        # ToolNode no atrapa excepciones arbitrarias: una API caída tumbaría el turno.
         try:
             check_url_is_safe(url)
 

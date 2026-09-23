@@ -1,10 +1,4 @@
-"""
-Cifrado simétrico (Fernet) para secretos guardados en base de datos.
-
-Cierra la deuda que el README ya documentaba ("Fernet está previsto, no
-implementado"). Utilidad general, no solo para las tools configurables —
-queda lista para cuando se cifren también los tokens de Meta.
-"""
+"""Cifrado simétrico (Fernet) para secretos guardados en base de datos."""
 
 from __future__ import annotations
 

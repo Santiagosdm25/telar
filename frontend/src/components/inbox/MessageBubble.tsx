@@ -29,16 +29,8 @@ const MEDIA_LABEL: Record<string, string> = {
 }
 
 /**
- * `media.storage_url` (en realidad solo una marca "ya está guardado", no
- * una URL real -- ver channels/meta.py) es lo que dice si vale la pena
- * pedir el archivo. Si el mensaje es de antes de esta función, o la
- * descarga falló en su momento (Meta caída, archivo vencido, muy pesado),
- * no hay nada que traer: se queda en el chip con el nombre nomás.
- *
- * El objeto URL creado con el blob no se libera explícitamente al
- * desmontar -- vive hasta que se recarga la pestaña. Para el volumen de
- * media de una bandeja de soporte no vale la pena la complejidad de
- * trackear la revocación por ahora.
+ * `media.storage_url` es solo una marca de "ya guardado" (ver channels/meta.py): sin ella
+ * no hay archivo que pedir. La URL del blob no se revoca; vive hasta recargar la pestaña.
  */
 function MediaChip({ media, type, messageId }: { media: MessageMedia; type: string; messageId: string }) {
   const { accountId, conversationId } = useParams<{ accountId: string; conversationId: string }>()
@@ -111,11 +103,7 @@ export interface BubbleProps {
   grouped?: boolean
 }
 
-/**
- * Tres orígenes, tres tratamientos visuales. Distinguir bot de asesor es lo
- * más importante de esta pantalla: quien audita una conversación necesita ver
- * de un vistazo qué dijo la IA y qué dijo una persona.
- */
+/** Bot, asesor y contacto se distinguen a simple vista: qué dijo la IA y qué una persona. */
 export function MessageBubble({ message, grouped = false }: BubbleProps) {
   const { sender_type: sender } = message
 
@@ -173,8 +161,7 @@ export function MessageBubble({ message, grouped = false }: BubbleProps) {
           {message.media ? (
             <div className="flex flex-col gap-1.5">
               <MediaChip media={message.media} type={message.type} messageId={message.id} />
-              {/* Si no hay caption real, content es el placeholder genérico
-                  que arma as_agent_text() en el backend -- no se repite. */}
+              {/* Sin caption real, content es el placeholder de as_agent_text(): no se repite. */}
               {message.content && !/^\[\w+ recibido\]$/.test(message.content) && (
                 <p>{message.content}</p>
               )}
@@ -203,10 +190,7 @@ export function MessageBubble({ message, grouped = false }: BubbleProps) {
   )
 }
 
-/**
- * Solo tiene sentido para mensajes salientes (bot/asesor): un mensaje del
- * contacto siempre queda 'delivered' en la base apenas llega por webhook.
- */
+/** Solo salientes: un mensaje del contacto siempre queda 'delivered' al llegar. */
 function DeliveryIndicator({ status }: { status: string }) {
   switch (status) {
     case 'read':

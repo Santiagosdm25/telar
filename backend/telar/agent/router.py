@@ -1,8 +1,4 @@
-"""
-Endpoint HTTP para el bot de la cuenta -- la contraparte del CLI
-deploy_bot.py. "El bot de la cuenta" es singular a propósito: ver
-db/repositories.py get_bot_for_account.
-"""
+"""Endpoints del bot de la cuenta (uno por cuenta)."""
 
 from __future__ import annotations
 
@@ -92,8 +88,7 @@ async def save_bot(
     body: SaveBotRequest,
     membership: Membership = Depends(require_role(AccountRole.ADMINISTRATOR)),
 ) -> BotResponse:
-    # Se compila de verdad, con las tools reales de la cuenta, antes de
-    # guardar nada -- mismo chequeo que ya usa deploy_bot.py.
+    # Se compila con las tools reales de la cuenta antes de guardar.
     extra_tools = await build_custom_tools(account_id)
     try:
         compile_graph(body.graph, available_tools=TOOLS + extra_tools)
@@ -128,7 +123,7 @@ async def activate_bot_version(
     version_id: UUID,
     membership: Membership = Depends(require_role(AccountRole.ADMINISTRATOR)),
 ) -> BotVersionResponse:
-    """Rollback (o forward) a una versión ya guardada, sin recompilar nada nuevo."""
+    """Activa una versión ya guardada, sin recompilar."""
     bot = await _get_bot_or_404(account_id)
     version = await repo.get_bot_version(version_id)
     if version is None or version["bot_id"] != bot["id"]:
@@ -157,7 +152,7 @@ async def list_available_tools(
 
 class TestChatRequest(BaseModel):
     message: str
-    session_id: str | None = None  # None = arrancar una sesión de prueba nueva
+    session_id: str | None = None  # None = sesión de prueba nueva
 
 
 class TraceEvent(BaseModel):
@@ -185,17 +180,10 @@ async def test_chat(
     body: TestChatRequest,
     membership: Membership = Depends(require_role(AccountRole.ADMINISTRATOR)),
 ) -> TestChatResponse:
-    """
-    Habla con el bot de la cuenta tal cual está configurado hoy -- mismo
-    grafo, tools y modelo que en producción -- sin crear ni tocar ningún
-    contacto o conversación real. La memoria de esta sesión de prueba vive
-    en el mismo checkpointer que las conversaciones reales, pero con un
-    thread_id bajo el prefijo "test:" que ningún contact_id real puede
-    generar, así que nunca se cruza con una conversación de verdad.
+    """Prueba el bot con el grafo de producción sin tocar contactos ni conversaciones reales.
 
-    Si el agente llama a escalar_a_humano, acá no se dispara ningún
-    traspaso real (no hay conversación que soltar) -- would_escalate le
-    avisa a quien prueba que en producción esto habría pasado a un asesor.
+    El thread_id usa el prefijo "test:", que ningún contact_id puede generar. escalar_a_humano
+    no hace traspaso: solo se reporta en would_escalate.
     """
     session_id = body.session_id or str(uuid4())
     thread_id = f"test:{account_id}:{session_id}"

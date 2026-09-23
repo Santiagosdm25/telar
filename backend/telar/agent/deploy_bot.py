@@ -1,15 +1,5 @@
-"""
-Bootstrap de un bot con flujo propio. v0 no tiene API de administración:
-se define el grafo en un archivo JSON local y se despliega con este
-script, igual que bases de conocimiento y tools configurables.
+"""Despliega un bot desde un JSON local (formato en agent/compiler.py).
 
-Formato del archivo (ver agent/compiler.py para el contrato completo):
-    {
-      "nodes": [{"id": "agente", "type": "agent", "system_prompt": "...", "tools": null}],
-      "edges": [{"from": "START", "to": "agente"}, {"from": "agente", "to": "END"}]
-    }
-
-Uso:
     python -m telar.agent.deploy_bot <account_id> <nombre_del_bot> flow.json
 """
 
@@ -28,8 +18,7 @@ from telar.db import repositories as repo
 
 
 async def deploy_bot(account_id: UUID, name: str, graph_json: dict) -> None:
-    # Se compila de verdad, con las tools reales de la cuenta, antes de
-    # guardar nada: si el JSON está mal, no queda un bot roto en la DB.
+    # Se compila con las tools reales antes de guardar, para no dejar un bot roto.
     extra_tools = await build_custom_tools(account_id)
     compile_graph(graph_json, available_tools=TOOLS + extra_tools)
 

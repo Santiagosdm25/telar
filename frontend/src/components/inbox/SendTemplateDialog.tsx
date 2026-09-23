@@ -19,11 +19,7 @@ import { ApiError } from '@/lib/api'
 import { getTemplates, sendTemplateMessage } from '@/lib/endpoints'
 import { queryKeys } from '@/lib/queryKeys'
 
-/**
- * Fuera de la ventana de 24h, Meta solo deja iniciar con una plantilla ya
- * aprobada. Si la plantilla tiene variables ({{1}}, {{2}}...), se piden acá
- * y el backend las reemplaza antes de mandarla (send_template_message).
- */
+/** Fuera de la ventana de 24h Meta solo acepta plantillas aprobadas; las variables las reemplaza el backend. */
 export function SendTemplateDialog({
   accountId,
   conversationId,

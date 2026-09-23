@@ -26,15 +26,12 @@ export function isAdmin(role: string | null): boolean {
   return role === 'administrator' || role === 'superadmin'
 }
 
-/** Quién puede sumar/sacar gente de la cuenta -- administrator y superadmin
- * sin restricción, supervisor limitado a asesores (ver assignableRolesFor). */
+/** Quién puede sumar/sacar gente; supervisor limitado a asesores (ver assignableRolesFor). */
 export function canManageMembers(role: string | null): boolean {
   return isAdmin(role) || role === 'supervisor'
 }
 
-/** Roles que puede asignar quien está sumando un miembro. Un supervisor
- * solo puede crear/mantener asesores -- coincide con el guard del backend
- * (_guard_supervisor_role en accounts/router.py). */
+/** Un supervisor solo asigna asesores, igual que _guard_supervisor_role en el backend. */
 export function assignableRolesFor(role: string | null): AccountRoleValue[] {
   if (isAdmin(role)) return ASSIGNABLE_ROLES
   if (role === 'supervisor') return ['agent']

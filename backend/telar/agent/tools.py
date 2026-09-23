@@ -1,7 +1,3 @@
-"""
-Herramientas del agente.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -29,8 +25,7 @@ def escalar_a_humano(motivo: str) -> str:
     Args:
         motivo: por qué se transfiere, en una frase, para el asesor.
     """
-    # El efecto real lo aplica el worker al ver esta llamada; la tool solo
-    # devuelve el texto que el modelo dirá antes de soltar la conversación.
+    # El handoff lo aplica el worker al ver esta llamada.
     return "TRANSFERIR: " + motivo
 
 
@@ -49,12 +44,8 @@ async def consultar_base_de_conocimiento(
     Args:
         pregunta: qué buscar, en pocas palabras clave.
     """
-    # ToolNode no convierte excepciones arbitrarias en un ToolMessage de
-    # error: por default solo lo hace para ToolInvocationError, cualquier
-    # otra cosa (sin OPENAI_API_KEY, OpenAI caído, la base de datos) se
-    # propaga y tumba el turno completo del agente. Como esto cruza un
-    # límite externo (proveedor de embeddings + base de datos), se atrapa
-    # acá para que un fallo de KB no se lleve puesta toda la respuesta.
+    # ToolNode solo convierte ToolInvocationError en ToolMessage; cualquier otro fallo
+    # (embeddings, base de datos) tumbaría el turno completo.
     try:
         embeddings = get_embeddings()
         vector = await embeddings.aembed_query(pregunta)

@@ -15,10 +15,7 @@ import { getMembers } from '@/lib/endpoints'
 import { queryKeys } from '@/lib/queryKeys'
 import { ROLE_LABEL } from '@/lib/roles'
 
-/**
- * `POST /conversations/{id}/assign` acepta `assignee_id`, y administrator y
- * supervisor pueden usarlo para asignarle la conversación a otra persona.
- */
+/** Administrator y supervisor pueden asignar la conversación a otra persona. */
 export function AssigneePicker({
   accountId,
   assigneeId,

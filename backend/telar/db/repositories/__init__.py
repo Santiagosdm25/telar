@@ -1,10 +1,4 @@
-"""
-Acceso a datos, organizado por dominio (ver los submódulos). Se mantiene
-como paquete con re-export plano para que el resto del código siga
-haciendo `from telar.db import repositories as repo` /
-`repo.<funcion>(...)` sin cambios -- separar en archivos más chicos es
-para quien lee/edita repositories, no un cambio de API pública.
-"""
+"""Acceso a datos por dominio, re-exportado plano para `repo.<funcion>(...)`."""
 
 from telar.db.repositories.accounts import *  # noqa: F401,F403
 from telar.db.repositories.audit import *  # noqa: F401,F403

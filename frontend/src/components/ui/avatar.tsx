@@ -18,11 +18,7 @@ interface ContactAvatarProps extends React.ComponentProps<typeof AvatarPrimitive
   src?: string | null
 }
 
-/**
- * Avatar de iniciales con un tono estable por contacto. Sin foto: la Cloud API
- * no expone la del perfil, así que la consistencia del color es lo que ayuda a
- * reconocer a alguien de un vistazo en la lista.
- */
+/** Iniciales con un tono estable por contacto: la Cloud API no expone la foto de perfil. */
 function ContactAvatar({
   name,
   seed,

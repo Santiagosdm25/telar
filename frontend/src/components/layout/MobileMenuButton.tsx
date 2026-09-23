@@ -3,7 +3,7 @@ import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMobileNav } from '@/lib/mobileNav'
 
-/** Un botón, repetido en el header de cada página -- abre el sidebar como drawer. Invisible desde `lg` para arriba, donde el sidebar ya está siempre visible. */
+/** Abre el sidebar como drawer; oculto desde `lg`, donde el sidebar siempre está visible. */
 export function MobileMenuButton() {
   const { setOpen } = useMobileNav()
   return (

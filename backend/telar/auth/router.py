@@ -55,10 +55,8 @@ class ChangePasswordRequest(BaseModel):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, request: Request) -> TokenResponse:
-    # Rate limit por IP: protege contra fuerza bruta sobre el password.
-    # Detrás de Cloudflare Tunnel todas las conexiones llegan desde el
-    # contenedor del túnel: sin el header, 5 intentos fallidos de cualquiera
-    # bloquearían el login de todos.
+    # Rate limit por IP contra fuerza bruta. Detrás del túnel hace falta el header
+    # de IP real, o un atacante bloquearía el login de todos.
     header = settings().trusted_client_ip_header
     client_ip = (header and request.headers.get(header)) or (
         request.client.host if request.client else "desconocido"
@@ -76,8 +74,7 @@ async def login(body: LoginRequest, request: Request) -> TokenResponse:
 
     user = await repo.get_user_by_email(body.email)
 
-    # Se corre el hash incluso si el email no existe: el tiempo de
-    # respuesta no debe delatar si está registrado (evita enumeración).
+    # Se hashea aunque el email no exista, para no permitir enumeración por tiempo.
     if user is None:
         verify_dummy_password(body.password)
         raise _INVALID_CREDENTIALS
@@ -105,11 +102,7 @@ async def me(user: dict = Depends(get_current_user)) -> MeResponse:
 async def change_password(
     body: ChangePasswordRequest, user: dict = Depends(get_current_user)
 ) -> None:
-    """
-    Para el caso de "sumar miembro" (accounts/router.py:add_member): a un
-    usuario recién creado se le entrega una contraseña temporal fuera de
-    banda, y esto es lo que usa para fijar la suya en el primer login.
-    """
+    """Cambio de contraseña, usado para reemplazar la temporal en el primer login."""
     if not verify_password(body.current_password, user["password_hash"]):
         raise _INVALID_CREDENTIALS
     await repo.update_user_password(user["id"], hash_password(body.new_password))

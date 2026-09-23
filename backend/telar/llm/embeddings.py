@@ -1,11 +1,6 @@
-"""
-Embeddings para búsqueda semántica en bases de conocimiento.
+"""Embeddings para bases de conocimiento. Solo OpenAI: el esquema fija vector(1536).
 
-v0 solo soporta OpenAI: es lo único que coincide con las dimensiones fijas
-del esquema (kb_chunks.embedding es vector(1536), igual que
-text-embedding-3-small). El import de langchain_openai va adentro de la
-función para que el módulo se pueda importar sin telar[openai] instalado;
-el error solo aparece si de verdad se llama la tool de KB.
+langchain_openai se importa adentro para no exigir telar[openai] al importar el módulo.
 """
 
 from __future__ import annotations

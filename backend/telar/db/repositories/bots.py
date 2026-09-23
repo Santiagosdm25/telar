@@ -124,8 +124,6 @@ async def get_active_bot_graph(account_id: UUID) -> dict | None:
 
 
 async def get_graph_version(account_id: UUID) -> int:
-    """0 si nunca se invalidó nada para esta cuenta -- ver
-    agent/graph_cache.py."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -150,12 +148,7 @@ async def bump_graph_version(account_id: UUID) -> None:
 
 
 async def get_bot_for_account(account_id: UUID) -> dict | None:
-    """
-    El bot de la cuenta, sin importar el nombre -- a propósito, para que
-    "un bot por cuenta" sea la única forma de crear uno desde acá (el CLI
-    deploy_bot.py sigue permitiendo varios por nombre si alguien lo usa
-    directo, pero el editor visual no hereda esa ambigüedad).
-    """
+    """El bot de la cuenta, sin importar el nombre: el editor asume un bot por cuenta."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(

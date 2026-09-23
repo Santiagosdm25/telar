@@ -1,4 +1,4 @@
-"""Usuarios y su contraseña -- sin nada de cuentas/roles, ver accounts.py."""
+"""Usuarios y contraseñas."""
 
 from __future__ import annotations
 

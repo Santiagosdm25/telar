@@ -10,22 +10,8 @@ import type {
 } from '@/types/api'
 
 /*
- * Modelo del lienzo (formato v2 del grafo, ver backend/telar/agent/multi_agent.py):
- *
- *   WhatsApp ━━► Agente principal
- *                    ┆ (puede usar)
- *          ┌─────────┼──────────────┐
- *     Herramienta  Herramienta   Sub-agente
- *                                    ┆ (puede usar)
- *                                Herramienta
- *
- * Para el principal, un sub-agente ES una herramienta (`delegar_<id>`): decide
- * él si lo llama y cuándo. Por eso sale del mismo punto que las herramientas
- * y se dibuja punteado, igual que ellas. Lo único sólido es WhatsApp →
- * principal, que pasa siempre.
- *
- * Qué usa cada agente no se edita con checkboxes: son las conexiones del
- * lienzo. flowToGraph() las lee de los edges (`data.kind`).
+ * Grafo v2 (ver backend/telar/agent/multi_agent.py): WhatsApp → agente principal, que usa
+ * herramientas y sub-agentes (`delegar_<id>`). Qué usa cada agente sale de los edges (`data.kind`).
  */
 
 export const START_ID = 'START'
@@ -102,10 +88,8 @@ export function isV2(graph: BotGraph): graph is BotGraphV2 {
 }
 
 /**
- * Bots guardados antes de v2 (cadena lineal de nodos): el primero pasa a ser
- * el principal y el resto sub-agentes suyos. No es idéntico en
- * comportamiento — en v1 corrían todos en fila — así que el editor avisa y
- * el cambio recién vale al guardar.
+ * v1 (cadena lineal): el primero pasa a principal y el resto a sub-agentes. No es
+ * idéntico en comportamiento, así que el editor avisa y el cambio vale al guardar.
  */
 export function legacyToV2(graph: LegacyBotGraph, availableTools: AvailableToolResponse[]): BotGraphV2 {
   const nextOf = new Map(graph.edges.map((e) => [e.from, e.to]))
@@ -171,8 +155,7 @@ export function graphToFlow(
   nodes.push(agentNode(main, mainPos))
   edges.push(triggerEdge(main.id))
 
-  // Un nodo por herramienta, compartido: la misma API puede estar conectada a
-  // varios agentes. También las que quedaron sueltas en el lienzo (layout).
+  // Un nodo por herramienta, compartido entre agentes; incluye las sueltas del layout.
   const toolNames = new Set<string>()
   for (const a of g.agents) a.tools.forEach((t) => toolNames.add(t))
   for (const key of Object.keys(layout)) {
@@ -192,7 +175,6 @@ export function graphToFlow(
     return positions
   }
 
-  // Fila del principal: sus herramientas y sus sub-agentes, todo "lo que puede usar".
   const mainTools = main.tools.filter((t) => toolNames.has(t))
   const mainRow = placeRow(mainPos, [
     ...mainTools.map((t) => ({ id: toolNodeId(t), width: WIDTH.tool })),
@@ -321,7 +303,6 @@ export function newToolNode(tool: AvailableToolResponse, position: { x: number; 
   return toolNode(tool.name, tool, position)
 }
 
-/** Recalcula los contadores (herramientas y sub-agentes) que muestra cada agente. */
 export function withToolCounts(nodes: Node[], edges: Edge[]): Node[] {
   return nodes.map((n) => {
     if (n.type !== 'agent') return n
@@ -351,7 +332,6 @@ export function slugify(raw: string): string {
   return slug || 'agente'
 }
 
-/** Si el slug ya lo usa otro nodo, le suma un sufijo numérico hasta que sea único. */
 export function uniqueNodeId(base: string, existingIds: Set<string>): string {
   if (!existingIds.has(base)) return base
   let i = 2

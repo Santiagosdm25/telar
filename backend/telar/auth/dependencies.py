@@ -24,11 +24,7 @@ _UNAUTHORIZED = HTTPException(
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> dict:
-    """
-    Busca al usuario fresco en la base de datos en cada request, no solo lo
-    que dice el token: así un usuario borrado queda bloqueado de inmediato,
-    no recién cuando expire el token.
-    """
+    """Se relee el usuario en cada request para que uno borrado quede bloqueado de inmediato."""
     if credentials is None:
         raise _UNAUTHORIZED
 
@@ -46,17 +42,14 @@ async def get_current_user(
 class Membership(BaseModel):
     user_id: UUID
     account_id: UUID
-    role: AccountRole | None  # None cuando el acceso es por bypass de superadmin
+    role: AccountRole | None  # None = bypass de superadmin
     is_superadmin: bool
 
 
 def require_role(*roles: AccountRole):
-    """
-    Dependencia por endpoint: exige que el usuario autenticado pertenezca a
-    la cuenta del path (account_id, tomado automáticamente del path de la
-    ruta que la use) con alguno de los roles dados. Sin roles
-    (require_role()) alcanza con pertenecer a la cuenta, con el rol que
-    sea. is_superadmin es bypass total sobre cualquier cuenta.
+    """Exige membresía en la cuenta del path con alguno de los roles (sin roles, cualquiera).
+
+    is_superadmin es bypass total.
     """
 
     async def _check(

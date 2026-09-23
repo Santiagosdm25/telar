@@ -1,14 +1,6 @@
-"""
-Construye el modelo Pydantic (args_schema de la tool) a partir del
-`schema` que la cuenta guarda en la fila de `tools`.
+"""Construye el args_schema Pydantic de la tool a partir de su `schema`:
 
-Formato mínimo esperado:
-    {
-        "properties": {
-            "campo": {"type": "string", "description": "..."}
-        },
-        "required": ["campo"]
-    }
+    {"properties": {"campo": {"type": "string", "description": "..."}}, "required": ["campo"]}
 """
 
 from __future__ import annotations

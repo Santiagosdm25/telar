@@ -34,8 +34,7 @@ async def get_account_database_connection(account_id: UUID) -> dict | None:
 
 
 async def get_account_database_credentials(account_id: UUID) -> dict | None:
-    """La única función que sí devuelve la password (cifrada) -- para
-    probar/aprovisionar contra la conexión ya guardada."""
+    """Incluye la password cifrada, para probar o aprovisionar la conexión guardada."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -107,8 +106,7 @@ async def mark_database_provisioned(account_id: UUID) -> None:
 
 
 async def delete_account_database_connection(account_id: UUID) -> None:
-    """Solo olvida la conexión guardada -- nunca toca ni borra nada en la
-    base externa del cliente."""
+    """Solo olvida la conexión; no toca la base externa."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(

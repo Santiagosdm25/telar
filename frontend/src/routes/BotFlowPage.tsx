@@ -140,8 +140,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
       setNodes(flow.nodes)
       setEdges(flow.edges)
       setConverted(flow.converted)
-      // Un bot del formato viejo se convierte al abrirlo: queda "sin guardar"
-      // para que el cambio sea explícito, no silencioso.
+      // Un bot v1 se convierte al abrirlo y queda "sin guardar" a propósito.
       setDirty(flow.converted)
     },
     [setNodes, setEdges],
@@ -154,8 +153,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     setHydrated(true)
   }, [bot, availableTools, hydrated, loadGraph])
 
-  /* El nodo de WhatsApp no vive en el JSON (START es solo un ancla): se le
-     inyecta la conexión real acá. */
+  /* START no vive en el JSON: la conexión real se inyecta acá. */
   React.useEffect(() => {
     if (!hydrated || inboxes === undefined) return
     const primary = inboxes[0]
@@ -212,8 +210,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     queryClient.invalidateQueries({ queryKey: queryKeys.botVersions(accountId) })
   }
 
-  /* Cambios del lienzo: mover o borrar con el teclado también cuenta como
-     "sin guardar" (antes borrar una conexión con Backspace no lo marcaba). */
+  /* Mover o borrar con el teclado también cuenta como "sin guardar". */
   const onNodesChange = React.useCallback(
     (changes: NodeChange[]) => {
       applyNodeChanges(changes)
@@ -233,7 +230,6 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     [applyEdgeChanges],
   )
 
-  // El contador de herramientas de cada agente sigue a las conexiones.
   React.useEffect(() => {
     setNodes((current) => withToolCounts(current, edges))
   }, [edges, setNodes])
@@ -352,8 +348,7 @@ function BotFlowEditor({ accountId }: { accountId: string }) {
     setDirty(true)
   }
 
-  /* Resalta en el lienzo lo que actuó en el último turno del chat de prueba.
-     No marca "sin guardar": `active` no va al JSON. */
+  /* No marca "sin guardar": `active` no va al JSON. */
   const handleTrace = React.useCallback(
     (trace: TraceEvent[] | null) => {
       const agents = new Set(trace?.map((e) => e.agent))

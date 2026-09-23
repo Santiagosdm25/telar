@@ -1,10 +1,4 @@
-"""
-Hash de contraseñas y JWT de sesión para usuarios administradores.
-
-Esto es autenticación de personas (agentes, administradores), no del
-contacto de WhatsApp: el contacto se identifica por su wa_id, nunca hace
-login.
-"""
+"""Hash de contraseñas y JWT de sesión para usuarios del panel (no contactos de WhatsApp)."""
 
 from __future__ import annotations
 
@@ -18,8 +12,7 @@ from telar.config import settings
 
 _ALGORITHM = "HS256"
 
-# Hash fijo contra el que se compara cuando el email no existe, para que el
-# tiempo de respuesta de /auth/login no revele si el email está registrado.
+# Hash fijo para cuando el email no existe: el tiempo de /auth/login no revela si está registrado.
 _DUMMY_HASH = bcrypt.hashpw(b"no-existe", bcrypt.gensalt())
 
 

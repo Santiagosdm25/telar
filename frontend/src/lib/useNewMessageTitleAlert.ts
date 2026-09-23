@@ -6,16 +6,8 @@ import { getConversations } from '@/lib/endpoints'
 const BASE_TITLE = document.title
 
 /**
- * Cambia el título de la pestaña cuando llega un mensaje nuevo mientras
- * Telar no está a la vista (otra pestaña, otra ventana, minimizado) --
- * hoy un agente no se entera de nada hasta que vuelve a la bandeja.
- *
- * El polling normal de la lista (InboxLayout) se pausa en segundo plano
- * por default de TanStack Query, y además solo mira el filtro/búsqueda
- * activos. Acá se arma una consulta aparte, liviana (una sola fila, sin
- * filtro), que sigue corriendo en background para detectar la novedad
- * sin importar en qué filtro haya quedado la bandeja ni en qué pantalla
- * esté el agente dentro de la cuenta.
+ * Consulta propia (una fila, sin filtro) porque el polling de la bandeja se pausa
+ * en segundo plano y depende del filtro activo.
  */
 export function useNewMessageTitleAlert(accountId: string | undefined) {
   const [unseen, setUnseen] = React.useState(0)
@@ -33,9 +25,7 @@ export function useNewMessageTitleAlert(accountId: string | undefined) {
 
   const latest = data?.[0]?.last_contact_message_at ?? null
 
-  // Detecta la novedad: compara contra la última marca vista, no contra
-  // "cuántas hay" -- así no importa si la conversación más reciente
-  // cambia de lugar por otro motivo (reasignación, etc.).
+  // Compara contra la última marca vista, no contra la cantidad.
   React.useEffect(() => {
     if (!latest) return
     if (lastSeenRef.current === null) {
@@ -47,8 +37,7 @@ export function useNewMessageTitleAlert(accountId: string | undefined) {
     if (!activeRef.current) setUnseen((n) => n + 1)
   }, [latest])
 
-  // "Visible" no alcanza: una ventana de fondo en un segundo monitor
-  // puede estar visible sin tener foco. Se pide lo segundo también.
+  // Una ventana de fondo puede estar visible sin foco: se piden ambas.
   React.useEffect(() => {
     function update() {
       const nowActive = document.visibilityState === 'visible' && document.hasFocus()

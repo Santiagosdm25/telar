@@ -47,8 +47,7 @@ export function AddMemberDialog({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.members(accountId) })
       if (data.temporary_password) {
-        // Se creó un usuario nuevo de una: hay que mostrar la contraseña
-        // temporal ahora porque no se vuelve a poder ver después.
+        // La contraseña temporal no se puede volver a ver: se muestra ahora.
         setCreated({ email: data.email, password: data.temporary_password })
       } else {
         toast.success('Miembro sumado a la cuenta')

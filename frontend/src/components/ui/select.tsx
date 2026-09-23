@@ -3,10 +3,7 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-/**
- * Select nativo con los tokens del tema. Nativo a propósito: en móvil abre el
- * picker del sistema y no hay que reimplementar el teclado.
- */
+/** Nativo a propósito: en móvil abre el picker del sistema. */
 function Select({ className, children, ...props }: React.ComponentProps<'select'>) {
   return (
     <div className="relative">

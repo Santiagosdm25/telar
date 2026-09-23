@@ -1,13 +1,6 @@
-"""
-Endpoints de cuentas, membresía y equipos.
+"""Cuentas, membresía y equipos.
 
-administrator gestiona quién pertenece a la cuenta y qué equipos existen;
-supervisor puede sumar/sacar *asesores* (nunca administradores ni otros
-supervisores -- ver _guard_supervisor_role) y mover gente dentro/fuera de
-un equipo, pero no crear equipos ni la cuenta misma; agent no gestiona
-nada de esto. Ni supervisor ni agent pueden tocar inboxes, proveedor LLM,
-tools, bases de conocimiento, base de datos de la cuenta ni el hilo del
-bot -- esos routers exigen ADMINISTRATOR aparte, sin cambios acá.
+Un supervisor solo gestiona asesores y la pertenencia a equipos; el resto es de administrator.
 """
 
 from __future__ import annotations
@@ -64,7 +57,7 @@ class MemberResponse(BaseModel):
     email: str
     name: str
     role: str
-    temporary_password: str | None = None  # presente una sola vez: se creó el usuario ahora
+    temporary_password: str | None = None  # solo se devuelve al crear el usuario
 
 
 class CreateTeamRequest(BaseModel):
@@ -94,10 +87,7 @@ async def create_account(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo un superadmin puede crear cuentas")
 
     account_id = await repo.insert_account(body.name)
-    # Sin esto, la cuenta queda sin ningún administrator real -- solo
-    # accesible por el bypass de superadmin. Quien la crea queda como su
-    # primer administrador, igual que pasaría si se sumara a sí mismo desde
-    # Equipo después.
+    # Quien crea la cuenta queda como su primer administrador.
     await repo.insert_account_membership(account_id, user["id"], AccountRole.ADMINISTRATOR.value)
     return AccountResponse(id=account_id, name=body.name)
 
@@ -112,10 +102,7 @@ async def list_accounts(user: dict = Depends(get_current_user)) -> list[AccountR
 
 
 def _guard_supervisor_role(membership: Membership, role: AccountRole) -> None:
-    """Un supervisor puede sumar o sacar asesores, nunca administradores ni
-    otros supervisores -- evita que se autopromueva o promueva a alguien
-    más sin pasar por un administrator real. Superadmin y administrator no
-    tienen esta restricción."""
+    """Un supervisor solo puede sumar o sacar asesores, para que no pueda autopromoverse."""
     if membership.is_superadmin or membership.role == AccountRole.ADMINISTRATOR:
         return
     if role != AccountRole.AGENT:
@@ -137,10 +124,7 @@ async def add_member(
     temporary_password: str | None = None
 
     if target is None:
-        # No hay infraestructura de invitación por email en el proyecto: se
-        # crea el usuario acá mismo con una contraseña temporal que el
-        # administrador comparte fuera de banda. El usuario la cambia con
-        # POST /auth/change-password en su primer login.
+        # Sin invitación por email: contraseña temporal que se comparte fuera de banda.
         if not body.name:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

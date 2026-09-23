@@ -36,9 +36,7 @@ export function statusHint(status: ConversationStatusValue) {
   return STATUS[status].hint
 }
 
-/** Clases del chip "suave" de un estado (fondo tenue + texto en su color).
- * Se usa tanto en StatusBadge como en cualquier otro selector que quiera
- * marcar un estado activo sin recurrir a un relleno sólido. */
+/** Clases del chip "suave" de un estado: fondo tenue + texto en su color. */
 export function statusChipClass(status: ConversationStatusValue) {
   return STATUS[status].chip
 }

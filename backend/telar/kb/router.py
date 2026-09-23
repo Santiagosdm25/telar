@@ -1,9 +1,4 @@
-"""
-Administración de bases de conocimiento por HTTP -- la contraparte de crear
-la fila a mano e ingestar con `python -m telar.kb.ingest`. El embedding
-sigue fijo (text-embedding-3-small / vector(1536), ver README); esto solo
-saca el CLI/INSERT manual del camino.
-"""
+"""Administración de bases de conocimiento. El embedding es fijo (vector(1536))."""
 
 from __future__ import annotations
 

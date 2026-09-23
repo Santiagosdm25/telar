@@ -107,9 +107,7 @@ async def delete_llm_provider(provider_id: UUID) -> None:
 
 
 async def set_active_llm_provider(account_id: UUID, provider_id: UUID) -> None:
-    """Desactiva el proveedor activo anterior (si hay) y activa el nuevo, en
-    una sola transacción -- así nunca hay un instante con dos activos, cosa
-    que además rompería el índice único parcial."""
+    """Cambia el proveedor activo en una transacción (el índice único parcial no admite dos)."""
     pool = await get_pool()
     async with pool.connection() as conn:
         async with conn.transaction():

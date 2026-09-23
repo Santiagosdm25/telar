@@ -3,15 +3,7 @@ import * as React from 'react'
 
 import { getNetworkStatusSnapshot, subscribeNetworkStatus } from '@/lib/networkStatus'
 
-/**
- * Banner persistente para "no hay conexión con el servidor" -- reemplaza
- * la experiencia anterior de un toast aislado por cada request que falla,
- * que no le decía a nadie que el problema era general y seguía repitiendo
- * el mismo aviso cada vez que se reintentaba algo.
- *
- * El estado de red lo alimenta `apiFetch` (lib/api.ts) en cada llamada, así
- * que este banner aparece y desaparece solo -- no hace polling propio.
- */
+/** El estado lo alimenta `apiFetch` en cada llamada: no hace polling propio. */
 export function OfflineBanner() {
   const offline = React.useSyncExternalStore(subscribeNetworkStatus, getNetworkStatusSnapshot)
 

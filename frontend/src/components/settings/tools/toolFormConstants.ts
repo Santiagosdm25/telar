@@ -34,11 +34,7 @@ export interface ToolTemplate {
   secret: Record<string, unknown>
 }
 
-/**
- * Plantillas de arranque rápido -- apuntan a URLs de ejemplo, claramente falsas.
- * La idea es no partir de un textarea vacío: se elige una, se reemplaza la URL
- * (y el token) por los reales, y ya queda una tool http andando.
- */
+/** Plantillas de arranque con URLs de ejemplo, claramente falsas. */
 export const TOOL_TEMPLATES: ToolTemplate[] = [
   {
     key: 'consultar_estado_pedido',

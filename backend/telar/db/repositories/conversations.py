@@ -48,7 +48,7 @@ __all__ = [
 
 
 async def already_processed(inbox_id: UUID, channel_message_id: str) -> bool:
-    """Meta reintenta el webhook. Sin esto el bot responde dos veces."""
+    """Deduplicación: Meta reintenta el webhook."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -59,10 +59,7 @@ async def already_processed(inbox_id: UUID, channel_message_id: str) -> bool:
 
 
 async def insert_buffered_message(msg: InboundMessage) -> None:
-    """Se llama ANTES de que el webhook responda 200 -- ver
-    worker/dispatcher.py. ON CONFLICT DO NOTHING porque Meta puede
-    reintentar el mismo webhook mientras el mensaje sigue en la ventana
-    de debounce, antes de que exista en `messages`."""
+    """ON CONFLICT DO NOTHING: Meta puede reintentar mientras el mensaje sigue en el buffer."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(
@@ -104,8 +101,6 @@ async def delete_buffered_messages(ids: list[UUID]) -> None:
 
 
 async def list_buffered_keys() -> list[dict]:
-    """Para el barrido de recuperación al arrancar -- ver
-    worker/dispatcher.py recover_pending()."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -138,13 +133,8 @@ async def get_or_create_conversation(
     contact_id: UUID,
     default_team_id: UUID | None = None,
 ) -> Conversation:
-    """
-    El índice parcial one_live_conversation garantiza que no haya dos
-    conversaciones vivas para el mismo contacto, incluso con webhooks
-    simultáneos. `default_team_id` (el default_team_id del inbox) solo se
-    usa al crear una conversación nueva, para que la cola por equipo tenga
-    algo que propagar desde el primer mensaje.
-    """
+    """El índice parcial one_live_conversation impide dos conversaciones vivas por contacto
+    aunque lleguen webhooks simultáneos. `default_team_id` solo se usa al crear."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -208,12 +198,7 @@ async def save_conversation(conv: Conversation) -> None:
 async def save_conversation_if_unchanged(
     conv: Conversation, expected_status: ConversationStatus, expected_assignee_id: UUID | None
 ) -> bool:
-    """
-    Igual que save_conversation, pero condicionada al estado que se leyó
-    antes de decidir la transición -- evita que dos agentes tomando la
-    misma conversación casi al mismo tiempo terminen con "gana el último
-    UPDATE" sin que ninguno se entere. Devuelve False si alguien más ya
-    la cambió en el medio (0 filas afectadas)."""
+    """Optimistic locking sobre el estado leído. False si alguien la cambió en el medio."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -265,13 +250,7 @@ async def save_inbound(msg: InboundMessage, conversation_id: UUID) -> UUID | Non
 
 
 async def save_inbound_rate_limited(msg: InboundMessage, conversation_id: UUID) -> UUID | None:
-    """
-    Igual que save_inbound, pero para un mensaje que el rate limiter
-    descartó antes de pasarlo al agente -- se guarda igual (mismo
-    ON CONFLICT DO NOTHING contra reintentos de Meta) para que quede
-    visible en la bandeja, con un delivery_status distinto en vez de
-    'delivered' para no confundirlo con un mensaje que sí se procesó.
-    """
+    """Guarda un mensaje descartado por el rate limiter, con delivery_status propio."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(
@@ -298,9 +277,7 @@ async def save_inbound_rate_limited(msg: InboundMessage, conversation_id: UUID) 
 
 
 async def update_message_delivery_status(channel_message_id: str, status: str) -> None:
-    """Cierra el círculo de sent -> delivered -> read (o failed) que manda
-    Meta en el bloque `statuses` del webhook -- ver
-    channels/meta.py parse_statuses()."""
+    """Aplica los estados sent/delivered/read/failed del webhook."""
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(
@@ -414,11 +391,7 @@ async def get_conversations_for_account(
 async def get_messages_for_conversation(
     conversation_id: UUID, limit: int = 50, before: datetime | None = None
 ) -> list[dict]:
-    """
-    Últimos N mensajes anteriores a `before` (o al momento actual si no se
-    pasa), devueltos en orden cronológico ascendente. `before` permite subir
-    en el historial: se pasa el created_at del mensaje más viejo ya cargado.
-    """
+    """Últimos N mensajes anteriores a `before`, en orden cronológico."""
     pool = await get_pool()
     async with pool.connection() as conn:
         cur = await conn.execute(

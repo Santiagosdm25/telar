@@ -1,12 +1,7 @@
-"""
-Traza de un turno del bot: qué agente actuó, qué herramienta llamó, qué
-devolvió. La usa el chat de prueba para mostrar "qué pasó" en el lienzo.
+"""Traza de un turno (agentes, herramientas, resultados) para el chat de prueba.
 
-Funciona con un ContextVar: quien quiere la traza abre `collect()` antes de
-invocar el grafo, y los nodos registran eventos con `record()`. Fuera de un
-`collect()` (en producción, el pipeline normal) `record()` no hace nada y no
-cuesta nada. Las tareas de asyncio heredan el contexto al crearse, así que
-los eventos de los nodos y de los sub-agentes llegan a la misma lista.
+Vive en un ContextVar: fuera de `collect()`, `record()` no hace nada. Las tareas de
+asyncio heredan el contexto, así que los sub-agentes registran en la misma lista.
 """
 
 from __future__ import annotations

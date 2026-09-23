@@ -1,14 +1,5 @@
-"""
-Formato v2 del grafo: un agente principal y sub-agentes especialistas.
-
-- El **principal** es el único que habla con el cliente y el único que ve
-  la conversación (vive en el checkpointer, como en v1).
-- Cada **sub-agente** es, para el principal, una herramienta más
-  (`delegar_<id>`): recibe una tarea en texto con los datos que el principal
-  ya juntó, corre su propio loop con sus herramientas (APIs, SQL…) y
-  devuelve el resultado. No ve la conversación ni le habla al cliente: si le
-  falta un dato, lo dice y el principal se lo pide al cliente.
-- Un solo nivel: los sub-agentes usan herramientas, no otros sub-agentes.
+"""Formato v2 del grafo: un agente principal (el único que habla con el cliente) y
+sub-agentes expuestos como herramientas `delegar_<id>`. Un solo nivel de delegación.
 
     {
       "version": 2,
@@ -48,16 +39,13 @@ from telar.agent.compiler import (
 
 log = logging.getLogger(__name__)
 
-# El id termina en el nombre de la herramienta `delegar_<id>`, y los
-# proveedores exigen ^[a-zA-Z0-9_-]{1,64}$ en los nombres de tools.
+# Los proveedores exigen ^[a-zA-Z0-9_-]{1,64}$ en nombres de tools (`delegar_<id>`).
 _ID_RE = re.compile(r"^[a-z0-9_]{1,40}$")
 
-# Solo el principal habla con el cliente, así que solo él puede soltarlo:
-# un traspaso pedido desde un sub-agente quedaría escondido en su loop.
+# Un traspaso pedido desde un sub-agente quedaría escondido en su loop.
 MAIN_ONLY_TOOLS = {"escalar_a_humano"}
 
-# Tope de pasos del loop de un sub-agente (llamada al modelo + herramientas):
-# evita que uno mal configurado gire para siempre gastando tokens.
+# Tope de pasos del loop de un sub-agente.
 _SUBAGENT_RECURSION_LIMIT = 16
 
 _SUBAGENT_CONTRACT = """
@@ -227,8 +215,7 @@ def _make_delegate_tool(
         system_prompt=(sub.get("system_prompt") or f"Sos {name}.") + _SUBAGENT_CONTRACT,
     )
     sub_graph.add_edge(START, sub_id)
-    # Sin checkpointer: cada delegación arranca de cero con la tarea que le
-    # pasa el principal. La memoria de la conversación es del principal.
+    # Sin checkpointer: la memoria de la conversación es solo del principal.
     compiled = sub_graph.compile()
 
     async def delegate(
@@ -246,8 +233,7 @@ def _make_delegate_tool(
                 config={"recursion_limit": _SUBAGENT_RECURSION_LIMIT},
             )
         except Exception as e:
-            # Como las demás tools: un fallo del sub-agente no tumba el turno
-            # del principal, que puede disculparse o escalar.
+            # Un fallo del sub-agente no tumba el turno del principal.
             log.exception("el sub-agente %s falló", sub_id)
             trace.record(agent=sub_id, kind="error", text=trace.clip(e))
             return f"{name} no pudo completar la tarea por un error interno."

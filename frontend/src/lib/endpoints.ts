@@ -49,9 +49,7 @@ export function getMe() {
   return apiFetch<MeResponse>('/auth/me')
 }
 
-// --------------------------------------------------------------------------
 // Cuentas, miembros y equipos
-// --------------------------------------------------------------------------
 
 export function getAccounts() {
   return apiFetch<AccountResponse[]>('/accounts')
@@ -111,9 +109,7 @@ export function removeTeamMember(accountId: string, teamId: string, userId: stri
   })
 }
 
-// --------------------------------------------------------------------------
 // Conversaciones
-// --------------------------------------------------------------------------
 
 export function getConversations(
   accountId: string,
@@ -225,9 +221,7 @@ export function deleteTemplate(accountId: string, templateId: string) {
   return apiFetch<void>(`/accounts/${accountId}/templates/${templateId}`, { method: 'DELETE' })
 }
 
-// --------------------------------------------------------------------------
 // Bot
-// --------------------------------------------------------------------------
 
 export function getBot(accountId: string) {
   return apiFetch<BotResponse | null>(`/accounts/${accountId}/bot`)
@@ -262,9 +256,7 @@ export function testChat(accountId: string, body: { message: string; session_id?
   })
 }
 
-// --------------------------------------------------------------------------
 // Inboxes (números de WhatsApp)
-// --------------------------------------------------------------------------
 
 export function getInboxes(accountId: string) {
   return apiFetch<InboxResponse[]>(`/accounts/${accountId}/inboxes`)
@@ -308,9 +300,7 @@ export function rotateInboxCredentials(
   })
 }
 
-// --------------------------------------------------------------------------
 // Tools configurables (http/sql)
-// --------------------------------------------------------------------------
 
 export function getTools(accountId: string) {
   return apiFetch<ToolAdminResponse[]>(`/accounts/${accountId}/tools`)
@@ -355,9 +345,7 @@ export function deleteTool(accountId: string, toolId: string) {
   return apiFetch<void>(`/accounts/${accountId}/tools/${toolId}`, { method: 'DELETE' })
 }
 
-// --------------------------------------------------------------------------
 // Proveedores LLM
-// --------------------------------------------------------------------------
 
 export function getLlmProviders(accountId: string) {
   return apiFetch<LlmProviderResponse[]>(`/accounts/${accountId}/llm-providers`)
@@ -413,9 +401,7 @@ export function discoverModels(
   })
 }
 
-// --------------------------------------------------------------------------
 // Bases de conocimiento
-// --------------------------------------------------------------------------
 
 export function getKnowledgeBases(accountId: string) {
   return apiFetch<KnowledgeBaseResponse[]>(`/accounts/${accountId}/knowledge-bases`)

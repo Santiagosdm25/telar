@@ -1,17 +1,6 @@
-"""
-Tests de integración del camino completo: webhook -> dispatcher ->
-pipeline -> agente -> envío, contra una Postgres real (ver conftest.py en
-este mismo directorio).
+"""Integración webhook -> dispatcher -> pipeline -> agente -> envío contra Postgres real.
 
-El LLM y el envío a Meta se simulan (no hay credenciales reales en test);
-todo lo demás -- firma del webhook, parseo, buffer durable, debounce,
-resolución de contacto/conversación, guardado de mensajes -- corre tal
-cual corre en producción.
-
-Marcados `integration` y excluidos por defecto (ver `addopts` en
-pyproject.toml) -- un `pytest -q` común sigue siendo rápido y sin
-depender de Postgres. Para correrlos: `pytest -m integration` (dentro del
-contenedor `api` en Windows, ver conftest.py).
+LLM y envío a Meta simulados. Excluidos por defecto: `pytest -m integration`.
 """
 
 from __future__ import annotations
@@ -40,8 +29,7 @@ pytestmark = pytest.mark.integration
 
 
 class _FakeReplyModel:
-    """Respuesta fija -- estos tests no necesitan simular tool-calling
-    (para eso ya está test_compiler.py), solo que el turno se complete."""
+    """Respuesta fija, sin tool-calling."""
 
     REPLY = "Gracias por escribir, ya te ayudamos."
 
@@ -54,8 +42,7 @@ class _FakeReplyModel:
 
 @pytest.fixture
 async def seeded_account(monkeypatch):
-    """Cuenta + inbox de prueba, con UUIDs nuevos por test para no chocar
-    con el caché de grafo (agent/graph_cache.py, por account_id)."""
+    """Cuenta + inbox con UUIDs nuevos por test, para no chocar con el caché de grafo."""
     account_id = uuid4()
     inbox_id = uuid4()
     phone_number_id = f"phone-{uuid4().hex[:8]}"
@@ -73,7 +60,6 @@ async def seeded_account(monkeypatch):
             (inbox_id, account_id, "Inbox de test", phone_number_id),
         )
 
-    # Modelo y envío simulados -- se revierten solos al terminar el test.
     monkeypatch.setattr(compiler_mod, "get_model", lambda *a, **k: _FakeReplyModel())
     sent_messages: list[dict] = []
 
@@ -178,12 +164,7 @@ async def test_webhook_to_reply_end_to_end(seeded_account):
 
 
 async def test_recover_pending_processes_orphaned_buffer(seeded_account):
-    """
-    Simula exactamente el escenario que la Etapa 1 resolvió: un mensaje
-    que quedó en inbound_message_buffer porque el proceso anterior murió
-    antes de procesarlo. recover_pending() (llamado al arrancar un
-    proceso nuevo) tiene que retomarlo solo.
-    """
+    """Un mensaje huérfano en el buffer se retoma con recover_pending()."""
     account_id, inbox_id, phone_number_id, sent_messages = seeded_account
     wa_id = f"549{uuid4().int % 10**10}"
     text = "este mensaje quedo huerfano de un crash anterior"
@@ -199,9 +180,7 @@ async def test_recover_pending_processes_orphaned_buffer(seeded_account):
         text=text,
         sent_at=datetime.now(timezone.utc),
     )
-    # Igual que hace dispatcher.submit() antes del debounce -- pero sin
-    # pasar por el dispatcher, para simular que el proceso murió justo
-    # después de persistir y nunca llegó a programar/completar el timer.
+    # Persiste como submit() pero sin programar el timer: el proceso "murió" acá.
     await repo.insert_buffered_message(msg)
 
     # "Proceso nuevo": Dispatcher fresco, sin nada en memoria.

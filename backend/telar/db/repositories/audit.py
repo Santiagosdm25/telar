@@ -1,7 +1,4 @@
-"""Log de auditoría mínimo -- un insert por cada cambio de credencial
-(inbox, tool, proveedor LLM, conexión de base de datos externa). Ver los
-call sites en inboxes/router.py, custom_tools/router.py, llm/router.py y
-tenant_db/router.py."""
+"""Log de auditoría de cambios de credenciales."""
 
 from __future__ import annotations
 

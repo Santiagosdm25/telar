@@ -11,9 +11,6 @@ export function AccountLayout() {
   const { accountId } = useParams<{ accountId: string }>()
   const { user, loading, roleForAccount } = useAuth()
 
-  // Antes de cualquier return condicional -- el hook necesita correr
-  // siempre, aunque accountId todavía no esté resuelto (internamente no
-  // hace nada hasta entonces).
   useNewMessageTitleAlert(accountId)
 
   if (loading) return <BootScreen />

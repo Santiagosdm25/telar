@@ -1,9 +1,4 @@
-"""
-Administración de tools configurables (http/sql) por HTTP -- la contraparte
-del CLI create_tool.py. El `kind` de una tool no se puede cambiar después
-de creada (cambiar de http a sql implica reescribir config/schema desde
-cero); si hace falta, se borra y se crea de nuevo.
-"""
+"""Administración de tools configurables. El `kind` no se puede cambiar después de creada."""
 
 from __future__ import annotations
 
@@ -20,10 +15,7 @@ from telar.db import repositories as repo
 
 router = APIRouter(prefix="/accounts/{account_id}/tools", tags=["tools"])
 
-# `schema` es el nombre de la columna real y lo que espera el frontend, pero
-# BaseModel.schema() (aunque deprecado en pydantic v2) dispara un warning si
-# se usa el nombre tal cual -- se alía el atributo Python a `schema_` y se
-# serializa como `schema` hacia afuera.
+# `schema` choca con BaseModel.schema(): se alía a `schema_` y se serializa como `schema`.
 _SCHEMA_FIELD = Field(alias="schema")
 
 
@@ -61,7 +53,7 @@ class UpdateToolRequest(BaseModel):
     config: dict[str, Any]
     schema_: dict[str, Any] = Field(default_factory=dict, alias="schema")
     enabled: bool = True
-    secret: dict[str, Any] | None = None  # None = no tocar el secreto guardado
+    secret: dict[str, Any] | None = None  # None = conservar el secreto guardado
 
 
 async def _get_tool_or_404(account_id: UUID, tool_id: UUID) -> dict:

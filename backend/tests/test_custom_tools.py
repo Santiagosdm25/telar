@@ -1,7 +1,4 @@
-"""
-Tests de las tools configurables. Lógica pura: construcción de schema
-dinámico, guarda SSRF y chequeo de solo-lectura de SQL. Sin red ni DB.
-"""
+"""Tools configurables: schema dinámico, guarda SSRF y solo-lectura de SQL."""
 
 from __future__ import annotations
 
@@ -31,7 +28,7 @@ def test_build_args_model_optional_field_defaults_to_none():
 
 
 def test_check_url_is_safe_allows_public_host(monkeypatch):
-    # Sin red: se simula la resolución DNS para no depender de internet.
+    # DNS simulado.
     monkeypatch.setattr(
         http_tool.socket,
         "getaddrinfo",

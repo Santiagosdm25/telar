@@ -1,10 +1,6 @@
 /**
- * Ventana de servicio de 24 horas de Meta.
- *
- * El backend la valida en `state.window_is_open()` y rechaza el envío con un
- * 409, pero recién cuando el asesor ya escribió el mensaje y le dio enviar.
- * Acá la calculamos del lado del cliente con el último mensaje entrante para
- * poder avisar antes, no después.
+ * Ventana de 24h de Meta, calculada en el cliente para avisar antes de que el
+ * backend rechace el envío con 409 (`state.window_is_open()`).
  */
 
 export const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000

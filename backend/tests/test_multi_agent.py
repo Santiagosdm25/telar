@@ -1,7 +1,4 @@
-"""
-Tests del formato v2 (agente principal + sub-agentes) y de los helpers del
-compilador que lo sostienen. Modelo y tools falsos: sin red, DB ni LLM real.
-"""
+"""Formato v2 (principal + sub-agentes) con modelo y tools falsos."""
 
 from __future__ import annotations
 
@@ -51,12 +48,7 @@ def _call(name: str, args: dict, call_id: str) -> AIMessage:
 
 
 class _ScriptedModel:
-    """
-    Decide según quién lo llama (el prompt del sub-agente trae el contrato
-    "Trabajás para otro agente"): el principal delega una vez y después
-    responde con lo que devolvió el sub-agente; el sub-agente consulta el
-    registro una vez y después informa el resultado.
-    """
+    """El principal delega una vez y responde; el sub-agente consulta una vez e informa."""
 
     def __init__(self, prompts_seen: list[str]):
         self.prompts_seen = prompts_seen
@@ -215,7 +207,7 @@ def test_tool_called_this_turn_mira_todo_el_turno():
         ToolMessage(content="ok", name="consultar_registro", tool_call_id="c"),
         AIMessage(content="te paso con un asesor"),
     ]
-    # Hay 4 mensajes entre el traspaso y el final: el chequeo viejo (últimos 3) no lo veía.
+    # El traspaso quedó 4 mensajes antes del final.
     assert tool_called_this_turn(messages, "escalar_a_humano")
     assert not tool_called_this_turn(messages[:4], "escalar_a_humano")
 

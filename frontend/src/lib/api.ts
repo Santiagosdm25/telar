@@ -23,17 +23,11 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * Todas las llamadas a la API pasan por acá: agrega el header de auth,
- * castea JSON, y en 401 limpia la sesión (el que llama a apiFetch en un
- * contexto sin sesión propia -- ver auth.tsx -- decide qué hacer con eso).
- */
+/** Agrega auth, castea JSON y en 401 limpia la sesión. */
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
   const headers = new Headers(init.headers)
-  // FormData (subida de archivos) necesita que el browser ponga su propio
-  // Content-Type con el boundary del multipart -- si lo pisamos acá, el
-  // backend no puede parsear el body.
+  // FormData necesita que el browser ponga su propio Content-Type con el boundary.
   if (!(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
@@ -45,14 +39,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   try {
     resp = await fetch(`${API_URL}${path}`, { ...init, headers })
   } catch (e) {
-    // fetch() solo tira acá cuando ni siquiera hubo respuesta del server:
-    // DNS, conexión rechazada, timeout de red, CORS. Un 4xx/5xx real del
-    // backend no pasa por acá -- eso es una respuesta válida, solo que
-    // con un status de error (se maneja más abajo).
+    // Solo sin respuesta del server (DNS, conexión, CORS); un 4xx/5xx no llega acá.
     reportApiNetworkFailure()
     throw e
   }
-  reportApiSuccess() // hubo respuesta del server: la red anda, sea cual sea el status
+  reportApiSuccess()
 
   if (resp.status === 401) {
     clearToken()
@@ -77,11 +68,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return (await resp.json()) as T
 }
 
-/**
- * Para endpoints que devuelven el archivo en crudo (media adjunta a un
- * mensaje), no JSON -- apiFetch siempre castea a JSON, por eso esto va
- * aparte en vez de una opción más de apiFetch.
- */
+/** Para endpoints que devuelven el archivo en crudo, no JSON. */
 export async function apiFetchBlob(path: string): Promise<Blob> {
   const token = getToken()
   const headers = new Headers()

@@ -13,12 +13,7 @@ interface Props {
   onClose: () => void
 }
 
-/**
- * Panel del nodo de inicio del hilo: la misma conexión de WhatsApp que
- * InboxesTab.tsx (Configuración), pero editable ahí mismo en el lienzo.
- * Con más de un inbox, este panel solo muestra/edita el primero y manda al
- * resto a Configuración -- no duplica ese CRUD acá.
- */
+/** Con más de un inbox solo edita el primero; el resto se gestiona en Configuración. */
 export function InboxConnectionPanel({ accountId, inboxes, onClose }: Props) {
   const primary = inboxes[0] as InboxResponse | undefined
   const extraCount = Math.max(inboxes.length - 1, 0)

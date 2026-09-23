@@ -1,25 +1,7 @@
-"""
-Caché de grafos compilados por cuenta.
+"""Caché por proceso de grafos compilados por cuenta.
 
-Un grafo por cuenta: cada una puede tener sus propias tools configurables, y
-bind_tools() necesita conocer la lista completa de antemano (compiler.py la
-"hornea" en el modelo al compilar). Antes este caché vivía como atributo de
-instancia de Pipeline (worker/pipeline.py), en un proceso que no tenía
-ninguna referencia al router que guarda bot_versions o al que administra
-tools/KBs -- por eso una tool nueva no se veía sin reiniciar el proceso.
-
-Vivir a nivel de módulo permite que cualquier código que mute lo que el
-grafo compilado ve (guardar un bot_version, activar otra versión, crear o
-editar una tool, tocar una base de conocimiento) llame invalidate() sin
-necesitar una referencia al Pipeline en ejecución.
-
-El objeto compilado en sí (un StateGraph con modelos ya enlazados) no es
-serializable para compartirlo entre procesos -- lo que sí se comparte es
-de qué versión es, en account_graph_versions (Postgres). Cada proceso
-sigue cacheando su propio grafo compilado localmente, pero lo valida
-contra esa versión compartida en cada uso: si otro proceso invalidó la
-cuenta, la próxima get_or_build() de cualquier proceso lo detecta solo,
-sin que invalidate() necesite avisarle a nadie directamente.
+El grafo compilado no es serializable; lo que se comparte entre procesos es su versión
+(account_graph_versions) y get_or_build() la valida en cada uso.
 """
 
 from __future__ import annotations
@@ -57,9 +39,7 @@ async def get_or_build(account_id: UUID, checkpointer) -> object:
 
 
 async def _resolve_model(account_id: UUID) -> tuple[str | None, dict]:
-    """Si la cuenta tiene un proveedor LLM activo, se usa ese en vez del
-    modelo global por defecto. Sin proveedor activo, el comportamiento es
-    exactamente el de antes (None -> settings().default_model)."""
+    """Proveedor LLM activo de la cuenta; sin él, None -> settings().default_model."""
     provider = await repo.get_active_llm_provider(account_id)
     if provider is None:
         return None, {}

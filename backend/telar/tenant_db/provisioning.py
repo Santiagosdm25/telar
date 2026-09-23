@@ -1,15 +1,6 @@
-"""
-Prueba de conexión y aprovisionamiento de las 3 tablas (schema.py) en la
-base externa (Postgres o MySQL) que la cuenta configuró.
+"""Prueba de conexión y aprovisionamiento de tablas en la base externa de la cuenta.
 
-Todo corre síncrono dentro de un hilo (asyncio.to_thread): son operaciones
-puntuales -- probar, crear tablas una vez -- no algo en el camino caliente
-del webhook, así que no vale la pena mantener un pool async separado por
-motor y por cuenta.
-
-MySQL es soporte opcional (pymysql, ver pyproject.toml el extra "mysql")
--- si no está instalado, se avisa con un error entendible en vez de un
-ImportError crudo.
+Síncrono en un hilo: no está en el camino caliente. MySQL requiere el extra "mysql".
 """
 
 from __future__ import annotations
@@ -45,10 +36,8 @@ def _pg_connect(host: str, port: int, database: str, username: str, password: st
     import psycopg
     from psycopg.conninfo import make_conninfo
 
-    # make_conninfo escapa cada valor -- un f-string a mano acá es
-    # vulnerable a inyección de parámetros libpq: un valor con un espacio
-    # seguido de "otra_clave=valor" (típicamente en la password, que el
-    # propio usuario controla) puede overridear sslmode u otro parámetro.
+    # make_conninfo escapa los valores: un f-string permitiría inyectar parámetros libpq
+    # (p. ej. sslmode) desde la password.
     conninfo = make_conninfo(
         host=host,
         port=port,
@@ -110,7 +99,7 @@ def _provision_sync(engine: Engine, **kwargs) -> None:
 async def test_connection(
     engine: Engine, host: str, port: int, database: str, username: str, password: str, use_ssl: bool
 ) -> None:
-    """No levanta nada, solo confirma que se puede conectar y correr una query."""
+    """Solo confirma que se puede conectar y correr una query."""
     try:
         await asyncio.to_thread(
             _test_sync,
@@ -132,8 +121,7 @@ async def test_connection(
 async def provision(
     engine: Engine, host: str, port: int, database: str, username: str, password: str, use_ssl: bool
 ) -> None:
-    """Crea las tablas si no existen. Se puede llamar de nuevo sin romper nada
-    (CREATE TABLE IF NOT EXISTS + seed de roles que chequea antes de insertar)."""
+    """Crea las tablas si no existen; es idempotente."""
     try:
         await asyncio.to_thread(
             _provision_sync,

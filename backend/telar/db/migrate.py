@@ -1,19 +1,10 @@
-"""
-Aplica las migraciones de `migrations/` que falten, en orden, y lleva el
-registro en `schema_migrations`. Reemplaza a `docker-entrypoint-initdb.d`,
-que solo corre cuando el volumen de Postgres está vacío: con eso, una
-migración nueva nunca llegaba a una base existente (ni a Supabase, que no
-tiene initdb).
+"""Aplica las migraciones pendientes de `migrations/` y las registra en `schema_migrations`.
 
-Uso:
     python -m telar.db.migrate              # aplica las pendientes
     python -m telar.db.migrate --status     # lista aplicadas y pendientes
-    python -m telar.db.migrate --baseline   # marca todas como aplicadas sin
-                                            # correrlas (bases creadas antes de
-                                            # que existiera este script)
+    python -m telar.db.migrate --baseline   # marca todas como aplicadas sin correrlas
 
-Cada archivo corre en su propia transacción: si falla, no queda a medias y
-no se registra. Un advisory lock evita que dos réplicas migren a la vez.
+Una transacción por archivo; un advisory lock evita que dos réplicas migren a la vez.
 """
 
 from __future__ import annotations
@@ -67,8 +58,7 @@ def _schema_predates_runner(conn: psycopg.Connection) -> bool:
 
 def run(*, baseline: bool = False, status: bool = False) -> None:
     files = migration_files()
-    # Conexión propia, sin el pool de la app: esto corre antes de que la API
-    # arranque, y el DDL no debe mezclarse con conexiones en autocommit.
+    # Conexión propia: corre antes que la API y el DDL no debe mezclarse con autocommit.
     with psycopg.connect(settings().database_url, prepare_threshold=None) as conn:
         conn.autocommit = True
         conn.execute("SELECT pg_advisory_lock(%s)", (_LOCK_ID,))

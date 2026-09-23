@@ -1,15 +1,6 @@
-"""
-Administración de inboxes (números de WhatsApp) por HTTP.
+"""Administración de inboxes (números de WhatsApp). El token de Meta se guarda cifrado.
 
-Antes registrar un número era un INSERT a mano (ver README, "Registrar tu
-número") -- literalmente el primer paso para instalar Telar. El token de
-Meta se cifra con el mismo mecanismo que ya usan las tools configurables
-(core/crypto.py) antes de guardarse en `inboxes.credentials`.
-
-`webhook_verify_token` no se expone acá a propósito: Meta valida el
-handshake del webhook con un solo verify token por app (META_VERIFY_TOKEN
-en el .env), no uno distinto por número -- exponer un campo por-inbox que
-no tiene ningún efecto en tiempo de ejecución sería confuso.
+No hay verify token por inbox: Meta usa uno solo por app (META_VERIFY_TOKEN).
 """
 
 from __future__ import annotations

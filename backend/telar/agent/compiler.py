@@ -1,32 +1,11 @@
-"""
-Compilador: traduce el JSON de bot_versions.graph a un StateGraph de
-LangGraph real. El JSON es el contrato entre el editor visual y el runtime.
+"""Compila el JSON de bot_versions.graph a un StateGraph de LangGraph.
 
-Hay dos formatos:
-
-- **v2** (`"version": 2`): un agente principal que habla con el cliente y
-  delega en sub-agentes, que usa como herramientas. Es el que arma el
-  constructor visual. Ver agent/multi_agent.py.
-- **v1** (sin `version`): cadena lineal de nodos, abajo. Se sigue
-  soportando para los bots guardados antes de v2 y para el grafo por
-  defecto de las cuentas sin bot propio.
-
-Formato v1 (sin ramas condicionales):
+v2 (`"version": 2`): ver agent/multi_agent.py. v1 (sin `version`), cadena lineal:
     {
       "nodes": [{"id": "...", "type": "agent", "system_prompt": "...", "tools": [...] | null,
                  "memory_window": 20 | null}],
       "edges": [{"from": "START", "to": "..."}, {"from": "...", "to": "END"}]
     }
-
-memory_window es opcional (default null = sin límite, todo el historial que
-guarde el checkpointer de la conversación). Si se pone un número, el nodo
-solo ve los últimos N mensajes del hilo al construir el prompt -- no borra
-nada de lo guardado, solo acorta lo que se manda al modelo en ese turno.
-
-Cada nodo "agent" hace su propio loop de tool-calling (como ya hacía el
-grafo escrito a mano), y al terminar (sin más tool_calls) pasa al
-siguiente nodo declarado en edges. v0 no soporta ramas: cada nodo tiene
-como mucho un edge de salida.
 """
 
 from __future__ import annotations
@@ -65,7 +44,7 @@ def compile_graph(
     checkpointer: Any = None,
 ):
     if graph_json.get("version") == 2:
-        # Import tardío: multi_agent reutiliza los helpers de este módulo.
+
         from telar.agent.multi_agent import compile_multi_agent
 
         return compile_multi_agent(
@@ -158,11 +137,7 @@ def _resolve_tools(
 
 
 def message_text(message: AnyMessage) -> str:
-    """
-    El texto de un mensaje del modelo. Con Anthropic, `content` puede ser una
-    lista de bloques (texto, thinking, tool_use): mandar `str(content)` le
-    haría llegar al cliente `[{'type': 'text', ...}]` literal.
-    """
+    """Texto del mensaje; con Anthropic `content` puede ser una lista de bloques."""
     content = message.content
     if isinstance(content, str):
         return content
@@ -176,11 +151,7 @@ def message_text(message: AnyMessage) -> str:
 
 
 def tool_called_this_turn(messages: list[AnyMessage], tool_name: str) -> bool:
-    """¿Se ejecutó `tool_name` después del último mensaje del cliente?
-
-    Mirar solo los últimos N mensajes fallaba cuando el agente llamaba otra
-    herramienta (o delegaba) después de pedir el traspaso.
-    """
+    """¿Se ejecutó `tool_name` después del último mensaje del cliente?"""
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
             return False
@@ -190,11 +161,9 @@ def tool_called_this_turn(messages: list[AnyMessage], tool_name: str) -> bool:
 
 
 def trim_history(history: list[AnyMessage], memory_window: int | None) -> list[AnyMessage]:
-    """
-    Los últimos `memory_window` mensajes, empezando siempre en un mensaje del
-    cliente. Cortar en un número fijo podía dejar primero un ToolMessage sin
-    la llamada que lo originó, y Anthropic/OpenAI rechazan eso con un 400 en
-    todos los turnos siguientes.
+    """Últimos `memory_window` mensajes, empezando en un mensaje del cliente.
+
+    Un ToolMessage sin su llamada al inicio hace que los proveedores respondan 400.
     """
     if memory_window is None:
         return history
@@ -202,8 +171,8 @@ def trim_history(history: list[AnyMessage], memory_window: int | None) -> list[A
     for i, message in enumerate(window):
         if isinstance(message, HumanMessage):
             return window[i:]
-    # La ventana quedó toda dentro de un turno con herramientas: se retrocede
-    # hasta el último mensaje del cliente.
+    # La ventana quedó dentro de un turno con herramientas: se retrocede al último
+    # mensaje del cliente.
     for i in range(len(history) - 1, -1, -1):
         if isinstance(history[i], HumanMessage):
             return history[i:]
@@ -223,19 +192,12 @@ def make_agent_node(
 
     async def agent(state: AgentState):
         prompt = system_prompt or state["system_prompt"]
-        # memory_window acorta lo que ve el modelo, no lo que guarda el
-        # checkpointer -- restaurar el nodo a "sin límite" recupera el
-        # historial completo sin perder nada de lo ya conversado.
+        # Solo acorta lo que ve el modelo; el checkpointer conserva todo.
         history = trim_history(state["messages"], memory_window)
         messages = [SystemMessage(content=prompt), *history]
         try:
             reply = await bound_model.ainvoke(messages)
         except Exception as e:
-            # No cambia el reintento (ya correcto: worker/dispatcher.py
-            # deja el mensaje en el buffer y el próximo intento dedupea
-            # sin volver a llamar al LLM) -- esto solo evita que quede
-            # enterrado un stack trace de LangChain en vez de una línea
-            # que diga qué cuenta necesita un proveedor LLM configurado.
             log.error(
                 "el modelo del agente falló para la cuenta %s: %s", state["account_id"], e
             )

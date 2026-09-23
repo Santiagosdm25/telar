@@ -1,22 +1,6 @@
-"""
-DDL de las 3 tablas que se aprovisionan en la base externa que cada cuenta
-trae -- roles, usuarios y contactos/conversaciones -- relacionadas por
-foreign key de verdad: telar_users.role_id -> telar_roles.id,
-telar_conversations.contact_id -> telar_contacts.id,
-telar_conversations.assigned_user_id -> telar_users.id.
+"""DDL de las tablas que se aprovisionan en la base externa de la cuenta.
 
-Mismo SQL para Postgres y MySQL: id como varchar(36) (un UUID en texto,
-generado en Python con uuid4) en vez de un tipo uuid nativo, que MySQL no
-tiene -- así no hace falta mantener dos plantillas de DDL. El único punto
-donde los dos motores difieren es el sufijo "ENGINE=InnoDB" que MySQL
-necesita para foreign keys reales (ver provisioning.py).
-
-Esto NO reemplaza la Postgres compartida donde vive el resto de Telar
-(auth, checkpoints de LangGraph, kb vectorial) -- es la base que el
-cliente trae para operar sus propios datos de negocio, hoy separada de
-esa. Enrutar las lecturas/escrituras de contactos y conversaciones para
-que usen esta conexión en vez de la compartida es el siguiente paso, no
-parte de este aprovisionamiento.
+Mismo SQL para Postgres y MySQL: ids varchar(36) con uuid4 generado en Python.
 """
 
 from __future__ import annotations

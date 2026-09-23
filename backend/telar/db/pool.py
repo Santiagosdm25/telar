@@ -17,9 +17,8 @@ async def get_pool() -> AsyncConnectionPool:
             min_size=1,
             max_size=settings().db_pool_max_size,
             open=False,
-            # prepare_threshold=None: sin prepared statements, que se rompen
-            # detrás de un pooler en modo transacción (Supabase :6543,
-            # PgBouncer). Con Postgres directo cuesta poco.
+            # Sin prepared statements: se rompen detrás de un pooler en modo transacción
+            # (PgBouncer, Supabase :6543).
             kwargs={"autocommit": True, "prepare_threshold": None},
         )
         await _pool.open(wait=True)

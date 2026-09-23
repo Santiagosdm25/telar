@@ -20,8 +20,7 @@ function App() {
       <Route path="/accounts" element={<AccountPickerPage />} />
       <Route path="/accounts/:accountId" element={<AccountLayout />}>
         <Route index element={<Navigate to="conversations" replace />} />
-        {/* La lista y el hilo viven en la misma pantalla, pero cada
-            conversación conserva su propia URL para poder compartirla. */}
+        {/* Cada conversación conserva su propia URL para poder compartirla. */}
         <Route path="conversations" element={<InboxLayout />}>
           <Route index element={<NoThreadSelected />} />
           <Route path=":conversationId" element={<ThreadPage />} />

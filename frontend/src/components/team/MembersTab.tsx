@@ -100,8 +100,7 @@ export function MembersTab({
                   </TableCell>
                   {canManage && (
                     <TableCell className="pr-4 text-right">
-                      {/* Un supervisor ve la columna (para sumar) pero solo
-                          puede sacar asesores -- mismo límite que el backend. */}
+                      {/* Un supervisor solo puede sacar asesores, igual que en el backend. */}
                       {m.user_id !== currentUserId && (isAdmin(role) || m.role === 'agent') && (
                         <Button
                           variant="destructive-ghost"
@@ -130,8 +129,6 @@ export function MembersTab({
         />
       )}
 
-      {/* El rol define qué puede hacer cada uno; que esté a la vista evita
-          tener que ir al README para entenderlo. */}
       <div className="rounded-xl border border-border bg-surface p-4">
         <p className="mb-2.5 text-[13px] font-medium">Qué puede hacer cada rol</p>
         <dl className="flex flex-col gap-2">

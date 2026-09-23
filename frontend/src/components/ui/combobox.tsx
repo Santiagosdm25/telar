@@ -4,16 +4,7 @@ import * as React from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-/**
- * Input de texto libre + lista desplegable que filtra `options` por
- * coincidencia parcial (contains, sin importar mayúsculas) contra lo que
- * se va tipeando -- ej. escribir "free" muestra todas las opciones que
- * tengan "free" en cualquier parte, no solo las que empiecen así.
- *
- * A diferencia de un <select>, el valor no tiene que estar en `options`:
- * sirve tanto para elegir de una lista larga como para escribir uno a mano
- * si `options` todavía está vacío o no trae lo que se busca.
- */
+/** Input libre con sugerencias por coincidencia parcial; el valor no tiene que estar en `options`. */
 export function Combobox({
   id,
   value,

@@ -1,12 +1,4 @@
-"""
-Administración de la conexión a la base de datos externa (Postgres o
-MySQL) que cada cuenta puede traer -- Configuración → Base de datos.
-
-Guardar la conexión no aprovisiona nada por sí solo (dos pasos separados,
-igual que "crear" vs "activar" en llm/router.py): primero se puede probar
-sin guardar (test_connection contra lo que hay en el formulario), después
-se guarda, y por último se aprovisiona (crea las 3 tablas si no existen).
-"""
+"""Conexión a la base externa de la cuenta: probar, guardar y aprovisionar son pasos separados."""
 
 from __future__ import annotations
 

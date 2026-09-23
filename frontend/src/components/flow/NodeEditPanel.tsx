@@ -270,10 +270,8 @@ export function NodeEditPanel({
 }
 
 /**
- * Se confirma al salir del campo (blur/Enter), no en cada tecla: en un
- * sub-agente el nombre también define su id (y la herramienta
- * `delegar_<id>`), y cambiar el id en vivo le haría perder el foco al input.
- * El padre lo monta con `key={nodeId}` para que arranque de cero en cada nodo.
+ * Se confirma en blur/Enter, no en cada tecla: en un sub-agente el nombre define
+ * el id, y cambiarlo en vivo le haría perder el foco al input. Montado con `key={nodeId}`.
  */
 function NameField({ name, onRename }: { name: string; onRename: (name: string) => void }) {
   const [value, setValue] = React.useState(name)
@@ -304,11 +302,7 @@ function NameField({ name, onRename }: { name: string; onRename: (name: string) 
   )
 }
 
-/**
- * El modelo es un ajuste de cuenta (llm_providers.is_active): todos los
- * agentes del flujo lo comparten. Esto solo evita salir del lienzo para
- * cambiarlo; reusa el mismo CRUD de Configuración → Proveedor LLM.
- */
+/** El modelo es un ajuste de la cuenta (llm_providers.is_active), compartido por todos los agentes. */
 function ModelSection({ accountId }: { accountId: string }) {
   const [creating, setCreating] = React.useState(false)
   const [editing, setEditing] = React.useState(false)

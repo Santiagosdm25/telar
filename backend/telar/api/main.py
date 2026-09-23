@@ -1,4 +1,4 @@
-"""Aplicación FastAPI. El webhook valida, deduplica y encola. Nada más."""
+"""Aplicación FastAPI. El webhook valida, deduplica y encola."""
 
 from __future__ import annotations
 
@@ -37,8 +37,7 @@ router = APIRouter()
 
 @router.get("/health", response_model=None)
 async def health() -> dict[str, str] | Response:
-    # Consulta la base: con la base externa (Supabase), "el proceso vive"
-    # no alcanza para decir que el servicio funciona.
+    # Consulta la base: con Postgres externo, que el proceso viva no alcanza.
     try:
         pool = await get_pool()
         async with pool.connection() as conn:
@@ -59,15 +58,9 @@ async def verify(request: Request) -> Response:
 
 @router.post("/webhooks/whatsapp", response_model=None)
 async def inbound(request: Request) -> dict[str, str] | Response:
-    """
-    Devuelve 200 siempre y de inmediato. Si tardas, Meta reintenta y acabas
-    procesando el mismo mensaje varias veces.
-    """
-    # Se chequea antes de leer el body: sin esto, cualquiera en internet
-    # (no hace falta la firma de Meta para llegar hasta acá) puede mandar
-    # bodies enormes en bucle y gastar memoria antes de que el sistema
-    # siquiera intente autenticar la request. El límite real de producción
-    # va en el reverse proxy; esto es defensa en profundidad.
+    """Responde 200 de inmediato: si tarda, Meta reintenta."""
+    # Se limita el tamaño antes de leer el body, que llega sin autenticar. Defensa en
+    # profundidad: el límite real va en el reverse proxy.
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > settings().webhook_max_body_bytes:
         return Response(status_code=413)
@@ -81,8 +74,7 @@ async def inbound(request: Request) -> dict[str, str] | Response:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
-        # 200 igual: si devolvemos error, Meta reintenta indefinidamente
-        # un body que nunca va a poder parsear.
+        # 200 igual: con error Meta reintenta indefinidamente un body imparseable.
         log.error("body del webhook no es JSON válido (%d bytes): %r", len(raw), raw[:200])
         return {"status": "ok"}
 

@@ -80,11 +80,9 @@ export interface MessageResponse {
   sender_id: string | null
   type: string
   content: string | null
-  /** Solo en mensajes de imagen/audio/video/documento. El archivo en sí
-   *  todavía no se descarga de Meta -- ver storage_url, hoy siempre null. */
+  /** Solo en mensajes de imagen/audio/video/documento. */
   media: MessageMedia | null
-  /** 'pending' | 'sent' | 'delivered' | 'read' | 'failed' -- suelto porque el
-   *  backend todavía puede sumar valores (webhooks de estado de Meta). */
+  /** 'pending' | 'sent' | 'delivered' | 'read' | 'failed'; suelto porque el backend puede sumar valores. */
   delivery_status: string
   created_at: string
 }

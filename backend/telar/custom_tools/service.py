@@ -1,11 +1,4 @@
-"""
-Lógica compartida para crear/editar tools configurables (http/sql).
-
-Usada tanto por el CLI (create_tool.py, que hoy es la única forma de
-correrlo a mano) como por el router HTTP de administración
-(custom_tools/router.py) -- para no repetir la validación de seguridad en
-dos lugares que puedan desincronizarse.
-"""
+"""Validación y alta/edición de tools configurables, compartida por el CLI y el router."""
 
 from __future__ import annotations
 
@@ -27,24 +20,14 @@ class ToolValidationError(Exception):
     pass
 
 
-# Un documento entero vive en config.text (jsonb) -- generoso para "un
-# documento de referencia", pero documentos más grandes que esto deberían
-# ir a una base de conocimiento (ingesta + búsqueda semántica) en vez de
-# acá, donde la "búsqueda" es un substring plano.
+# Documentos más grandes van a una base de conocimiento: aquí la búsqueda es un substring.
 _DOCUMENT_MAX_CHARS = 300_000
 
 
 def validate_tool_config(kind: str, config: dict, secret: dict | None = None) -> None:
-    """
-    Se corre antes de guardar, para no dejar creada una tool que nunca va a
-    poder ejecutarse (o que sea insegura desde el vamos). No relaja las
-    restricciones deliberadas de http_tool.py/sql_tool.py: esto valida la
-    forma de la config, la seguridad real se revisa de nuevo en cada
-    llamada de la tool ya construida.
+    """Valida la forma de la config al guardar; la seguridad se revisa de nuevo en cada llamada.
 
-    `secret` solo se valida cuando viene: en una edición, `None` significa
-    "no tocar el secreto guardado" (ver service.update_tool), y ese ya
-    pasó esta misma validación cuando se guardó.
+    `secret=None` en una edición significa conservar el secreto guardado.
     """
     try:
         if kind == "http":

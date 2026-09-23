@@ -1,8 +1,4 @@
-"""
-Tests del compilador de grafos. Modelos y tools falsos, sin red/DB/LLM
-real -- valida la estructura del StateGraph resultante y los errores de
-validación.
-"""
+"""Compilador de grafos con modelos y tools falsos."""
 
 from __future__ import annotations
 
@@ -44,11 +40,7 @@ class _FakeBoundModel:
 
 
 class _FakeModel:
-    """
-    Modelo falso. ainvoke() propio para el caso de un nodo sin tools
-    (bind_tools() nunca se llama, así que hace falta el mismo
-    comportamiento directo sobre la instancia).
-    """
+    """ainvoke() propio para nodos sin tools, donde bind_tools() no se llama."""
 
     def __init__(self, calls: list[str]):
         self.calls = calls
@@ -113,8 +105,7 @@ def test_two_node_chain_runs_in_order_with_tool_loop():
 
         result = asyncio.run(app.ainvoke(_base_state()))
 
-    # extractor se llama dos veces (pide la tool, después responde con el resultado),
-    # respondedor se llama una vez, en ese orden.
+    # extractor: dos llamadas (tool y respuesta); respondedor: una.
     assert calls == ["extractor", "extractor", "respondedor"]
     assert result["messages"][-1].content == "respuesta de respondedor"
 

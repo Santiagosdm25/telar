@@ -1,7 +1,4 @@
-"""
-Registro de modelos. No construimos abstracción propia: init_chat_model de
-LangChain ya resuelve el multi-proveedor con la cadena "proveedor:modelo".
-"""
+"""Registro de modelos sobre init_chat_model ("proveedor:modelo")."""
 
 from __future__ import annotations
 
@@ -12,11 +9,8 @@ from langchain.chat_models import init_chat_model
 
 from telar.config import settings
 
-# init_chat_model solo reconoce los proveedores que LangChain empaqueta
-# (openai, anthropic, ollama...). OpenRouter no es uno de ellos, pero expone
-# una API compatible con la de OpenAI -- se resuelve como "openai" apuntando
-# a la base_url de OpenRouter en vez de necesitar un paquete que no existe
-# (langchain-openrouter).
+# OpenRouter no es un proveedor de init_chat_model, pero su API es compatible
+# con OpenAI: se resuelve como "openai" con su base_url.
 LANGCHAIN_PROVIDER_ALIAS = {"openrouter": "openai"}
 
 DEFAULT_BASE_URL = {
@@ -32,13 +26,7 @@ def _cached(spec: str, frozen_params: tuple) -> Any:
 
 
 def get_model(spec: str | None = None, **params: Any):
-    """
-    spec admite "anthropic:claude-sonnet-4-5", "openai:gpt-4.1",
-    "ollama:llama3.1" -- el proveedor tiene que ser uno de los que
-    reconoce init_chat_model (ver LANGCHAIN_PROVIDER_ALIAS para casos como
-    OpenRouter). La base_url va en params si no es la del proveedor por
-    defecto.
-    """
+    """spec: "anthropic:claude-sonnet-4-5", "openai:gpt-4.1", "ollama:llama3.1"..."""
     spec = spec or settings().default_model
     return _cached(spec, tuple(sorted(params.items())))
 
@@ -46,9 +34,7 @@ def get_model(spec: str | None = None, **params: Any):
 def resolve_model_spec(
     provider: str, model: str, base_url: str | None = None
 ) -> tuple[str, str | None]:
-    """Traduce (proveedor de la cuenta, modelo) al spec que espera
-    init_chat_model, y resuelve la base_url por defecto del proveedor si no
-    vino una explícita."""
+    """(proveedor de la cuenta, modelo) -> spec de init_chat_model y base_url por defecto."""
     langchain_provider = LANGCHAIN_PROVIDER_ALIAS.get(provider, provider)
     resolved_base_url = base_url or DEFAULT_BASE_URL.get(provider)
     return f"{langchain_provider}:{model}", resolved_base_url

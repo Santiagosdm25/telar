@@ -94,9 +94,8 @@ export function Sidebar({ accountId, role, mobileOpen, onMobileOpenChange }: Sid
       role={role}
       pinned={pinned}
       onTogglePinned={togglePinned}
-      // En mobile el drawer se desmonta al navegar y el dropdown no avisa
-      // que se cerró: el contador quedaría trabado y el panel de desktop
-      // abierto al agrandar la ventana.
+      // El drawer se desmonta al navegar sin que el dropdown avise que se cerró:
+      // el contador quedaría trabado y el panel de desktop abierto.
       onMenuOpenChange={mode === 'desktop' ? onMenuOpenChange : undefined}
       onCreateAccount={() => setCreatingAccount(true)}
       onNavigate={() => onMobileOpenChange(false)}
@@ -184,7 +183,6 @@ function SidebarContent({
 
   return (
     <>
-      {/* Marca */}
       <div className="flex h-14 shrink-0 items-center gap-2 pl-1">
         {open ? <Logo variant="horizontal" size={22} /> : <Logo variant="mark" size={22} />}
         {mode === 'desktop' && open && (
@@ -212,7 +210,6 @@ function SidebarContent({
         )}
       </div>
 
-      {/* Cuenta */}
       <DropdownMenu onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>
           <button
@@ -263,14 +260,12 @@ function SidebarContent({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Navegación */}
       <nav className="mt-3 flex flex-col gap-0.5" aria-label="Secciones">
         {items.map((item) => (
           <NavItemLink key={item.to} item={item} onNavigate={onNavigate} />
         ))}
       </nav>
 
-      {/* Pie */}
       <div className="mt-auto flex flex-col gap-1 border-t border-border py-3">
         <button
           onClick={toggleTheme}
@@ -335,7 +330,7 @@ function NavItemLink({ item, onNavigate }: { item: NavItem; onNavigate: () => vo
     >
       {({ isActive }) => (
         <>
-          {/* barra de estado activo: no dependemos solo del color de fondo */}
+          {/* El activo no depende solo del color de fondo */}
           {isActive && (
             <span
               aria-hidden

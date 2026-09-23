@@ -1,12 +1,7 @@
-"""
-Tool SQL configurable por cuenta, contra una base Postgres externa que la
-cuenta trae (Telar no tiene datos de negocio propios que consultar).
+"""Tool SQL de solo lectura contra la base Postgres externa de la cuenta.
 
-Siempre de solo lectura: la conexión se marca read-only con
-psycopg (Connection.set_read_only), que Postgres hace cumplir a nivel de
-motor -- no es un chequeo de texto adivinando si la query es segura. El
-chequeo de prefijo SELECT/WITH es una barrera rápida adicional, no la
-protección real.
+La protección real es la conexión read-only (Postgres la hace cumplir); el chequeo
+de prefijo SELECT/WITH es solo una barrera rápida.
 """
 
 from __future__ import annotations
@@ -42,10 +37,7 @@ def check_query_is_readonly(query: str) -> None:
 
 
 def check_connection_is_postgres(connection_string: str) -> None:
-    """psycopg (usado en _run más abajo) solo entiende Postgres -- una
-    connection_string de otro motor (ej. mysql://) recién fallaría al
-    ejecutar la tool, con un error genérico. Se rechaza acá, al crear o
-    editar la tool, para que el error sea claro y temprano."""
+    """psycopg solo entiende Postgres: se rechaza otro motor al guardar, con un error claro."""
     scheme = connection_string.split("://", 1)[0].lower() if "://" in connection_string else ""
     if scheme not in _POSTGRES_SCHEMES:
         raise UnsupportedEngineError(
@@ -58,14 +50,12 @@ def build_sql_tool(row: dict[str, Any], secret: dict[str, Any]) -> StructuredToo
     query = row["config"]["query"]
     connection_string = secret["connection_string"]
 
-    # Se valida al construir la tool, antes de exponerla al agente.
     check_query_is_readonly(query)
 
     args_model = build_args_model(row["schema"], model_name=f"{row['name']}_args")
 
     async def _run(**kwargs: Any) -> str:
-        # ToolNode no atrapa excepciones arbitrarias por default: sin este
-        # try/except, una base externa caída tumbaría el turno completo.
+        # ToolNode no atrapa excepciones arbitrarias: una base caída tumbaría el turno.
         try:
             check_query_is_readonly(query)
 
