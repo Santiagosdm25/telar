@@ -1,4 +1,4 @@
-// Calco directo de los modelos Pydantic de telar/telar/telar/{auth,accounts,conversations}/router.py
+// Calco directo de los modelos Pydantic de backend/telar/{auth,accounts,conversations}/router.py
 
 export interface AccountMembership {
   account_id: string

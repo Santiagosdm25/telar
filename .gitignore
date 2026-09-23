@@ -1,7 +1,25 @@
-.claude/
+# Reglas para todo el repo. backend/ y frontend/ tienen además su propio
+# .gitignore con lo específico de cada stack (venv, node_modules, dist...).
+
+# Secretos: nunca a git, en ninguna carpeta. Solo los .env.example.
+.env
+.env.*
+!.env.example
+
+# Caché de Python en cualquier subcarpeta
+**/__pycache__/
+*.py[cod]
+
+# Sistema operativo y editores
 .DS_Store
-/package-lock.json
+.vscode/
+.idea/
+
+# Herramientas de IA (config local de cada máquina)
+.claude/
 CLAUDE.md
 AGENTS.md
-MEJORAS_PROPUESTAS.md
-PLAN_ESCALABILIDAD.md
+
+# npm corrido por error en la raíz: el único proyecto npm es frontend/
+/package-lock.json
+/node_modules/

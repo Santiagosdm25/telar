@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 12 116 100" width="116" height="100" role="img" aria-label="Telar">
-  <path d="M32 20 H78 A18 18 0 0 1 96 38 V70 A18 18 0 0 1 78 88 H48 L24 104 L34 88 H32 A18 18 0 0 1 14 70 V38 A18 18 0 0 1 32 20 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
-  <path d="M32 38 H78" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>
-  <path d="M32 62 H112" fill="none" stroke="#FF6B4A" stroke-width="10" stroke-linecap="round"/>
-</svg>

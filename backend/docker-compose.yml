@@ -1,3 +1,7 @@
+# Nombre fijo: si no, Compose lo toma de la carpeta y al renombrarla
+# crearía volúmenes nuevos (vacíos) en vez de reusar los de siempre.
+name: telar
+
 services:
   db:
     image: pgvector/pgvector:pg16

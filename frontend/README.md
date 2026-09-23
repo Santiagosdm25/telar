@@ -1,7 +1,7 @@
 # Telar -- frontend
 
 Panel de administración (React 19 + TypeScript + Vite + Tailwind v4). Habla
-con el backend (`../telar/`) exclusivamente por HTTP, vía `VITE_API_URL`.
+con el backend (`../backend/`) exclusivamente por HTTP, vía `VITE_API_URL`.
 
 ## Desarrollo
 
@@ -21,7 +21,7 @@ un proceso corriendo -- encaja directo con Cloudflare Pages, plan gratis.
 1. En el dashboard de Cloudflare: **Workers & Pages -> Create -> Pages ->
    Connect to Git**, elegí este repo.
 2. **Root directory**: `frontend` (el repo tiene el backend al lado, en
-   `telar/`).
+   `backend/`).
 3. **Build command**: `npm run build`
 4. **Build output directory**: `dist`
 5. Variable de entorno de build: `VITE_API_URL` = la URL pública del
@@ -35,6 +35,6 @@ rutas de React Router (`/accounts/:id/...`) no den 404 al recargar la
 página o entrar por link directo -- Cloudflare Pages lo lee solo, sin
 configuración adicional.
 
-Después de desplegar, en el backend (`telar/.env`) `FRONTEND_ORIGIN` tiene
+Después de desplegar, en el backend (`backend/.env`) `FRONTEND_ORIGIN` tiene
 que ser exactamente ese dominio (CORS acepta un solo origin, no `*`) --
-ver `telar/.env.example`.
+ver `backend/.env.example`.
